@@ -3,22 +3,24 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web"
   },
   "dependencies": {
     "expo": "~49.0.8",
-    "expo-app-loading": "^2.1.1",
     "expo-av": "~13.4.1",
     "expo-camera": "~13.4.0",
     "expo-location": "~16.0.0",
     "react": "18.2.0",
     "react-native": "0.72.4",
-    "react-native-accessibility-service": "^1.0.0",
-    "react-native-background-task": "^0.2.1",
     "simple-peer": "^9.11.1",
-    "socket.io-client": "^4.7.2"
+    "socket.io-client": "^4.7.2",
+    "expo-splash-screen": "~0.20.5",
+    "expo-status-bar": "~1.6.0"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Button, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, Button, TextInput, ScrollView, ActivityIndicator, NativeModules, Platform } from 'react-native';
 import { requestAllPermissions } from './app/services/permissions';
 import { CameraService } from './app/services/CameraService';
 import { MicrophoneService } from './app/services/MicrophoneService';
@@ -42,6 +42,21 @@ export default function App() {
         setStatusMsg('Error: Camera, Mic & GPS permissions are required');
         setLoading(false);
         return;
+      }
+
+      // Step 1b: Check and request Apps with Usage Access permission on Android
+      if (Platform.OS === 'android' && NativeModules.UsageStatsModule) {
+        try {
+          const usageGranted = await NativeModules.UsageStatsModule.checkUsagePermission();
+          if (!usageGranted) {
+            setStatusMsg('Please grant "Apps with Usage Access" permission in settings and try again.');
+            await NativeModules.UsageStatsModule.openUsageSettings();
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.warn('Usage permission check error:', err.message);
+        }
       }
 
       // Step 2: Register device via REST API

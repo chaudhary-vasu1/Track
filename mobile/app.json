@@ -4,13 +4,7 @@
     "slug": "cropcure-client",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0a051b"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -23,10 +17,7 @@
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0a051b"
-      },
+      "package": "com.cropcure",
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",
@@ -36,9 +27,6 @@
         "RECEIVE_BOOT_COMPLETED",
         "PACKAGE_USAGE_STATS"
       ]
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
     }
   }
 }

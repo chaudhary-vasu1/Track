@@ -16,6 +16,54 @@ class UsageStatsModule(reactContext: ReactApplicationContext) : ReactContextBase
     }
 
     @ReactMethod
+    fun checkUsagePermission(promise: Promise) {
+        try {
+            val context = reactApplicationContext
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                appOps.unsafeCheckOpNoThrow(
+                    android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    android.os.Process.myUid(),
+                    context.packageName
+                )
+            } else {
+                appOps.checkOpNoThrow(
+                    android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    android.os.Process.myUid(),
+                    context.packageName
+                )
+            }
+            val granted = mode == android.app.AppOpsManager.MODE_ALLOWED
+            promise.resolve(granted)
+        } catch (e: Exception) {
+            promise.reject("CHECK_PERMISSION_FAILED", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun openUsageSettings(promise: Promise) {
+        try {
+            val context = reactApplicationContext
+            val intent = android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                data = android.net.Uri.fromParts("package", context.packageName, null)
+            }
+            context.startActivity(intent)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            try {
+                val intent = android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                reactApplicationContext.startActivity(intent)
+                promise.resolve(true)
+            } catch (ex: Exception) {
+                promise.reject("OPEN_SETTINGS_FAILED", ex.message)
+            }
+        }
+    }
+
+    @ReactMethod
     fun getForegroundApp(promise: Promise) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
