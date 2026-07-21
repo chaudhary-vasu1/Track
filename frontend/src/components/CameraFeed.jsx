@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import api from '../services/api';
 import { getSocket } from '../services/socket';
+import { WebRTCManager } from '../services/webrtc';
 
 export default function CameraFeed({ kidDeviceId }) {
   const [streaming, setStreaming] = useState(false);
@@ -8,13 +9,41 @@ export default function CameraFeed({ kidDeviceId }) {
   const [facingMode, setFacingMode] = useState('back'); // 'front' or 'back'
   const [statusText, setStatusText] = useState('Offline');
   const videoRef = useRef(null);
+  const rtcManagerRef = useRef(null);
 
   const socket = getSocket();
 
   useEffect(() => {
     if (!socket) return;
 
-    // Handle responses or feedback if any from device
+    // Instantiate WebRTC Manager for camera
+    const rtc = new WebRTCManager(socket, kidDeviceId, 'camera');
+    rtcManagerRef.current = rtc;
+
+    rtc.onStatus((status) => {
+      setStatusText(status);
+    });
+
+    rtc.onStream((stream) => {
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(e => console.warn('Auto-play blocked:', e));
+      }
+    });
+
+    // Handle incoming WebRTC signaling from mobile device
+    const handleRtcOffer = ({ offer, senderId }) => {
+      console.log('Received WebRTC offer from kid device');
+      rtc.handleOffer(offer, senderId);
+    };
+
+    const handleIceCandidate = ({ candidate }) => {
+      rtc.handleIceCandidate(candidate);
+    };
+
+    socket.on('rtc-offer', handleRtcOffer);
+    socket.on('ice-candidate', handleIceCandidate);
+
     socket.on('camera-started', () => {
       setStatusText('LIVE');
     });
@@ -22,37 +51,54 @@ export default function CameraFeed({ kidDeviceId }) {
     socket.on('camera-stopped', () => {
       setStatusText('Offline');
       setStreaming(false);
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
     });
 
     return () => {
+      socket.off('rtc-offer', handleRtcOffer);
+      socket.off('ice-candidate', handleIceCandidate);
       socket.off('camera-started');
       socket.off('camera-stopped');
+      if (rtcManagerRef.current) {
+        rtcManagerRef.current.close();
+      }
     };
-  }, [socket]);
+  }, [socket, kidDeviceId]);
 
   const startCamera = async () => {
     try {
+      setStatusText('Connecting...');
       const response = await api.post('/surveillance/camera/start', { kidDeviceId });
       const { streamId } = response.data;
 
       if (socket) {
         socket.emit('camera-start', { kidDeviceId, streamId });
-        // Emit current facing mode preference upon start
         socket.emit('camera-switch', { kidDeviceId, facing: facingMode });
       }
 
       setStreaming(true);
-      setStatusText('LIVE');
     } catch (error) {
       console.error('Failed to start camera:', error.message);
+      setStatusText('Connection Failed');
     }
   };
 
   const stopCamera = async () => {
     try {
+      if (recording) {
+        await stopRecording();
+      }
       await api.post('/surveillance/camera/stop', { kidDeviceId });
       if (socket) {
         socket.emit('camera-stop', { kidDeviceId });
+      }
+      if (rtcManagerRef.current) {
+        rtcManagerRef.current.close();
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
       }
       setStreaming(false);
       setRecording(false);
@@ -71,29 +117,49 @@ export default function CameraFeed({ kidDeviceId }) {
   };
 
   const startRecording = async () => {
+    if (!rtcManagerRef.current) return;
     try {
       await api.post('/surveillance/camera/record/start', { kidDeviceId });
       if (socket) {
         socket.emit('camera-record-start', { kidDeviceId });
       }
-      setRecording(true);
+      const success = rtcManagerRef.current.startRecording();
+      if (success) {
+        setRecording(true);
+      }
     } catch (error) {
       console.error('Failed to start recording:', error.message);
     }
   };
 
   const stopRecording = async () => {
+    if (!rtcManagerRef.current) return;
     try {
-      const response = await api.post('/surveillance/camera/record/stop', {
-        kidDeviceId,
-        duration: 30, // Mock 30 seconds
-        s3Url: 'https://s3.amazonaws.com/cropcure-recordings/mock-video.mp4'
-      });
+      const recordedBlob = await rtcManagerRef.current.stopRecording();
+      setRecording(false);
+
       if (socket) {
         socket.emit('camera-record-stop', { kidDeviceId });
       }
-      setRecording(false);
-      console.log('Recording saved to S3:', response.data.s3Url);
+
+      if (recordedBlob && recordedBlob.size > 0) {
+        const formData = new FormData();
+        formData.append('recording', recordedBlob, `camera_${Date.now()}.webm`);
+        formData.append('kidDeviceId', kidDeviceId);
+        formData.append('type', 'video');
+        formData.append('duration', '30');
+
+        const uploadRes = await api.post('/upload/recording', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        console.log('Recording uploaded & saved:', uploadRes.data);
+      } else {
+        // Fallback REST call
+        await api.post('/surveillance/camera/record/stop', {
+          kidDeviceId,
+          duration: 30
+        });
+      }
     } catch (error) {
       console.error('Failed to stop recording:', error.message);
     }
@@ -115,28 +181,44 @@ export default function CameraFeed({ kidDeviceId }) {
               <span className="pulse-dot"></span>
               {statusText} ({facingMode.toUpperCase()})
             </div>
-            {/* Simulation loop or actual WebRTC rendering */}
-            <div style={{ 
-              width: '100%', 
-              height: '100%', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              backgroundColor: '#160f38',
-              backgroundImage: 'radial-gradient(circle, #251b5c, #0a051b)'
-            }}>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ fontSize: '48px' }}>📹</span>
-                <p style={{ marginTop: '10px', fontSize: '14px', color: '#00f2fe' }}>
-                  Streaming Live Feed from {facingMode === 'front' ? 'Front-facing' : 'Rear'} Camera
-                </p>
-                {recording && (
-                  <p style={{ color: '#ff3838', fontSize: '12px', animation: 'pulse 1s infinite' }}>
-                    🔴 RECORDING SESSION IN PROGRESS
+            
+            <video
+              ref={videoRef}
+              className="video-element"
+              autoPlay
+              playsInline
+              muted
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: statusText === 'LIVE' ? 'block' : 'none'
+              }}
+            />
+
+            {statusText !== 'LIVE' && (
+              <div style={{ 
+                width: '100%', 
+                height: '100%', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                backgroundColor: '#160f38',
+                backgroundImage: 'radial-gradient(circle, #251b5c, #0a051b)'
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <span style={{ fontSize: '48px' }}>📹</span>
+                  <p style={{ marginTop: '10px', fontSize: '14px', color: '#00f2fe' }}>
+                    {statusText === 'Connecting...' ? 'Establishing WebRTC Link...' : `Waiting for stream from ${facingMode} camera...`}
                   </p>
-                )}
+                  {recording && (
+                    <p style={{ color: '#ff3838', fontSize: '12px', animation: 'pulse 1s infinite', marginTop: '8px' }}>
+                      🔴 RECORDING SESSION IN PROGRESS
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </>
         ) : (
           <div style={{
@@ -148,7 +230,7 @@ export default function CameraFeed({ kidDeviceId }) {
             color: '#a39bb8',
             fontSize: '14px'
           }}>
-            Camera Feed Offline. Click Start.
+            Camera Feed Offline. Click Start Camera.
           </div>
         )}
       </div>

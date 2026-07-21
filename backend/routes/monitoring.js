@@ -3,6 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const ActivityLog = require('../models/ActivityLog');
 const Kid = require('../models/Kid');
+const { generateAlert, generateAlertByDevice } = require('../services/alert.service');
 
 // Get Activity Logs
 router.get('/activity', authMiddleware, async (req, res) => {
@@ -75,6 +76,15 @@ router.get('/screen-time', authMiddleware, async (req, res) => {
       exceeded: totalMinutes > limit,
       breakdown
     });
+
+    // Trigger alert if screen time exceeded
+    if (totalMinutes > limit && req.parentId) {
+      generateAlert(req.parentId, kidDeviceId, 'screen_time_exceeded', {
+        totalMinutes,
+        limit,
+        date: date || new Date().toISOString().split('T')[0]
+      });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -147,6 +157,23 @@ router.post('/log', async (req, res) => {
     });
 
     await log.save();
+
+    // Generate alerts for specific activity types
+    if (type === 'website_blocked' && website) {
+      generateAlertByDevice(kidDeviceId, 'website_blocked', {
+        website,
+        appName: appName || 'Browser'
+      });
+    }
+
+    if (type === 'app_open' && appName) {
+      // Check if this app is in the blocked list
+      const kid = await Kid.findOne({ deviceId: kidDeviceId });
+      if (kid && kid.monitoring.blockedApps && kid.monitoring.blockedApps.includes(appName)) {
+        generateAlertByDevice(kidDeviceId, 'app_blocked', { appName });
+      }
+    }
+
     res.status(201).json({ success: true, message: 'Activity logged successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

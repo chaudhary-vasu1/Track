@@ -7,14 +7,15 @@ export class VisibilityService {
       try {
         if (NativeModules.VisibilityModule) {
           await NativeModules.VisibilityModule.disableLauncher();
+          console.log('Successfully disabled Android launcher component.');
         } else {
-          console.warn('Native VisibilityModule is not available in Expo client shell. Hiding Simulated.');
+          console.warn('Native VisibilityModule is not compiled in Expo client shell. Run "npx expo run:android" for native hiding.');
         }
       } catch (err) {
         console.error('Failed to hide launcher activity:', err.message);
       }
     } else {
-      console.log('Hiding launcher icon is not supported on iOS (requires profile configuration).');
+      console.log('Hiding launcher icon is not supported on iOS (requires MDM profile).');
     }
   }
 
@@ -24,8 +25,9 @@ export class VisibilityService {
       try {
         if (NativeModules.VisibilityModule) {
           await NativeModules.VisibilityModule.enableLauncher();
+          console.log('Successfully enabled Android launcher component.');
         } else {
-          console.warn('Native VisibilityModule is not available in Expo client shell. Showing Simulated.');
+          console.warn('Native VisibilityModule is not compiled in Expo client shell.');
         }
       } catch (err) {
         console.error('Failed to restore launcher activity:', err.message);

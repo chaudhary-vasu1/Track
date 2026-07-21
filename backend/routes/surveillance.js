@@ -3,6 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const SurveillanceLog = require('../models/SurveillanceLog');
 const Recording = require('../models/Recording');
+const { uploadRecordingToS3 } = require('../services/recording.service');
 const { v4: uuidv4 } = require('uuid');
 
 // Start Camera Stream
@@ -54,18 +55,32 @@ router.post('/camera/record/start', authMiddleware, async (req, res) => {
 // Stop Camera Video Recording
 router.post('/camera/record/stop', authMiddleware, async (req, res) => {
   try {
-    const { recordingId, kidDeviceId, duration, s3Url } = req.body;
+    const { recordingId, kidDeviceId, duration, s3Url, base64Data } = req.body;
+
+    // Use real recording service for storage
+    let recordingUrl = s3Url || null;
+    if (base64Data) {
+      const buffer = Buffer.from(base64Data, 'base64');
+      recordingUrl = await uploadRecordingToS3(buffer, recordingId || uuidv4(), 'video');
+    } else if (!recordingUrl) {
+      // Fallback: create empty placeholder
+      recordingUrl = await uploadRecordingToS3(
+        Buffer.from('placeholder video recording'),
+        recordingId || uuidv4(),
+        'video'
+      );
+    }
     
     // Save to Database
     const recording = new Recording({
       parentId: req.parentId,
       kidDeviceId,
       type: 'video',
-      s3Url: s3Url || 'https://s3.amazonaws.com/cropcure-recordings/mock-video.mp4',
-      duration: duration || 120,
-      size: 1024 * 1024 * 5, // Mock 5MB
+      s3Url: recordingUrl,
+      duration: duration || 0,
+      size: base64Data ? Buffer.from(base64Data, 'base64').length : 0,
       createdAt: new Date(),
-      startedAt: new Date(Date.now() - (duration || 120) * 1000),
+      startedAt: new Date(Date.now() - (duration || 0) * 1000),
       endedAt: new Date()
     });
     await recording.save();
@@ -73,7 +88,8 @@ router.post('/camera/record/stop', authMiddleware, async (req, res) => {
     res.json({
       status: 'saved',
       s3Url: recording.s3Url,
-      duration: recording.duration
+      duration: recording.duration,
+      recordingId: recording._id
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

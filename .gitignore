@@ -30,3 +30,6 @@ npm-debug.log*
 *.key
 *.mobileprovision
 *.orig.*
+
+# Recordings & Media Uploads
+backend/public/recordings/

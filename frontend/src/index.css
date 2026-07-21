@@ -359,3 +359,55 @@ body {
   font-size: 14px;
   border: 1px solid var(--glass-border);
 }
+
+/* Leaflet Map Dark Styling Overrides */
+.leaflet-container {
+  background: #0a051b !important;
+  font-family: inherit !important;
+}
+
+.leaflet-tile-pane {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3);
+}
+
+.leaflet-control-zoom a {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-main) !important;
+  border-color: var(--glass-border) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: rgba(18, 10, 41, 0.95) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px !important;
+}
+
+.leaflet-popup-tip {
+  background: rgba(18, 10, 41, 0.95) !important;
+}
+
+/* Custom Neon Pin for Leaflet */
+.custom-neon-marker {
+  position: relative;
+}
+
+.custom-neon-marker .marker-pin {
+  width: 18px;
+  height: 18px;
+  background: var(--accent-pink);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 0 12px var(--accent-pink);
+}
+
+.custom-neon-marker .marker-pulse {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-pink);
+  animation: mapPulse 2s infinite ease-out;
+}
