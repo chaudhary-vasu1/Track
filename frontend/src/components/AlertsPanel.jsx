@@ -31,8 +31,8 @@ export default function AlertsPanel({ kidDeviceId }) {
     try {
       setLoading(true);
       const res = await api.get('/alerts', { params: { kidDeviceId, limit: 15 } });
-      setAlerts(res.data.alerts);
-      setUnreadCount(res.data.unreadCount || 0);
+      setAlerts((res.data && res.data.alerts) ? res.data.alerts : []);
+      setUnreadCount((res.data && res.data.unreadCount) ? res.data.unreadCount : 0);
     } catch (e) {
       console.error('Failed to fetch alerts:', e.message);
     } finally {

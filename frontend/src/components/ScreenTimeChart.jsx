@@ -16,7 +16,7 @@ export default function ScreenTimeChart({ kidDeviceId }) {
     try {
       setLoading(true);
       const res = await api.get('/monitoring/screen-time', { params: { kidDeviceId } });
-      const breakdown = res.data.breakdown;
+      const breakdown = (res.data && res.data.breakdown) ? res.data.breakdown : {};
       
       const chartData = Object.keys(breakdown).map(key => ({
         name: key,
@@ -24,8 +24,8 @@ export default function ScreenTimeChart({ kidDeviceId }) {
       }));
 
       setData(chartData);
-      setTotal(res.data.totalMinutes);
-      setLimit(res.data.limit);
+      setTotal(res.data ? res.data.totalMinutes || 0 : 0);
+      setLimit(res.data ? res.data.limit || 120 : 120);
     } catch (e) {
       console.error('Failed to get screen time data:', e.message);
     } finally {

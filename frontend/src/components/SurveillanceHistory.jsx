@@ -15,7 +15,7 @@ export default function SurveillanceHistory({ kidDeviceId }) {
       const response = await api.get('/surveillance/history', {
         params: { kidDeviceId, limit: 10 }
       });
-      setSessions(response.data.sessions);
+      setSessions((response.data && response.data.sessions) ? response.data.sessions : []);
     } catch (error) {
       console.error('Failed to load history:', error.message);
     } finally {

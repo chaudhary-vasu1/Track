@@ -11,6 +11,40 @@ import AlertsPanel from './components/AlertsPanel';
 import api from './services/api';
 import { initiateSocketConnection, disconnectSocket, getSocket } from './services/socket';
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("Component Error Caught:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="glass-card" style={{ padding: '24px', textAlign: 'center', margin: '15px' }}>
+          <h4 style={{ color: '#ff3838' }}>⚠️ Component Render Error</h4>
+          <p style={{ color: '#a39bb8', fontSize: '13px', marginTop: '6px' }}>{this.state.error?.message || 'An unexpected rendering error occurred.'}</p>
+          <button 
+            onClick={() => this.setState({ hasError: false, error: null })} 
+            className="btn-ctrl" 
+            style={{ marginTop: '14px', padding: '6px 14px' }}
+          >
+            🔄 Reset View
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -214,7 +248,7 @@ export default function App() {
         </header>
 
         {selectedKid && (
-          <>
+          <ErrorBoundary>
             {activeTab === 'dashboard' && (
               <div className="dashboard-grid">
                 <CameraFeed kidDeviceId={selectedKid.deviceId} />
@@ -237,7 +271,7 @@ export default function App() {
                 <AppVisibilityControl kidDeviceId={selectedKid.deviceId} />
               </div>
             )}
-          </>
+          </ErrorBoundary>
         )}
       </main>
     </div>
