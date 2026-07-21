@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { getSocket } from '../services/socket';
 
 export default function AppUsageBreakdown({ kidDeviceId }) {
   const [activities, setActivities] = useState([]);
