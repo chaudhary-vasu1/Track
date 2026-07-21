@@ -188,6 +188,17 @@ export default function App() {
         console.log("Socket ID:", socket.id);
         console.log("Device ID:", targetDeviceId);
 
+        // Start Android Foreground Service to prevent process kill
+        try {
+          if (Platform.OS === 'android' && NativeModules.MonitoringModule) {
+            NativeModules.MonitoringModule.startService()
+              .then(() => console.log('[Android] Foreground monitoring service started'))
+              .catch((err) => console.warn('[Android] Foreground service start failed:', err));
+          }
+        } catch (e) {
+          console.warn('[Android] MonitoringModule not available:', e.message);
+        }
+
         // Emit matching register-device event for backend listener
         socket.emit('register-device', { deviceId: targetDeviceId }, (res) => {
           if (res && res.status === 'ok') {

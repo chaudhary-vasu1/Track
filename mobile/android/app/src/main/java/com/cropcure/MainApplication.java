@@ -35,6 +35,7 @@ public class MainApplication extends Application implements ReactApplication {
         // packages.add(new MyReactNativePackage());
         packages.add(new VisibilityPackage());
         packages.add(new UsageStatsPackage());
+        packages.add(new MonitoringPackage());
         return packages;
       }
 
