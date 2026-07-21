@@ -70,12 +70,13 @@ if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
   server = http.createServer(app);
 }
 
-// Bind socket.io with buffer & ping tolerance
+// Bind socket.io with buffer, ping tolerance & transport options
 const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
   },
+  transports: ['websocket', 'polling'],
   pingTimeout: 60000,
   pingInterval: 25000,
   maxHttpBufferSize: 1e8
@@ -86,6 +87,17 @@ alertService.setSocketIO(io);
 
 // Register WebSocket signaling and command flows
 registerSocketHandlers(io);
+
+// Handle EADDRINUSE gracefully
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`\n⚠️ PORT IN USE: Port ${PORT} is already in use by another process.`);
+    console.error(`Please stop the existing server instance using port ${PORT}.\n`);
+    process.exit(1);
+  } else {
+    console.error('Server error:', error.message);
+  }
+});
 
 // Connect to MongoDB & Start Listening
 const PORT = config.server.port;

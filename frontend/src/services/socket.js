@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 let socket = null;
 
 export const initiateSocketConnection = (parentId, deviceId) => {
-  const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8443';
+  const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://192.168.1.24:8443';
   socket = io(socketUrl, {
     auth: {
       parentId,

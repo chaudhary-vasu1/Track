@@ -9,7 +9,7 @@ const config = {
     bucketName: process.env.AWS_BUCKET_NAME || 'cropcure-recordings'
   },
   server: {
-    url: process.env.BACKEND_URL || 'https://localhost:8443',
+    url: process.env.BACKEND_URL || 'http://192.168.1.24:8443',
     port: process.env.BACKEND_PORT || 8443,
     nodeEnv: process.env.NODE_ENV || 'development'
   },

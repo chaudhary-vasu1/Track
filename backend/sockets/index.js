@@ -15,12 +15,13 @@ function registerSocketHandlers(io) {
     let deviceId = socket.handshake.auth.deviceId || socket.handshake.query.deviceId;
     let parentId = socket.handshake.auth.parentId || socket.handshake.query.parentId;
 
-    console.log(`Socket Connected:\nDeviceId=${deviceId || 'undefined'}\nParentId=${parentId || 'undefined'}`);
+    console.log(`Socket Connected: ID=${socket.id}, DeviceId=${deviceId || 'undefined'}, ParentId=${parentId || 'undefined'}`);
 
     if (deviceId) {
       // It is a kid device
       socket.join(`device_${deviceId}`);
       deviceSocketMap.set(deviceId, socket.id);
+      console.log(`DEVICE CONNECTED: deviceId=${deviceId}, socketId=${socket.id}`);
 
       // If device reconnects during grace period, cancel pending offline alert
       if (offlineGraceTimers.has(deviceId)) {
@@ -33,6 +34,7 @@ function registerSocketHandlers(io) {
     if (parentId) {
       // It is a parent client
       socket.join(`parent_${parentId}`);
+      console.log(`PARENT CONNECTED: parentId=${parentId}, socketId=${socket.id}`);
     }
 
     // Explicit Device Registration Event Listener
@@ -127,8 +129,7 @@ function registerSocketHandlers(io) {
     // WebRTC: Parent requests camera stream
     socket.on('camera-start', (data) => {
       const { kidDeviceId, streamId } = data;
-      console.log('Parent sent CAMERA_START command');
-      console.log(`Device ${kidDeviceId} received command`);
+      console.log(`COMMAND SENT: camera-start to device_${kidDeviceId}`);
       activeStreams.set(streamId, { parentSocketId: socket.id, kidDeviceId });
       io.to(`device_${kidDeviceId}`).emit('camera-start-command', {
         streamId,
@@ -207,8 +208,7 @@ function registerSocketHandlers(io) {
     // WebRTC: Parent initiates microphone stream
     socket.on('mic-start', (data) => {
       const { kidDeviceId, streamId } = data;
-      console.log('Parent sent MIC_START command');
-      console.log(`Device ${kidDeviceId} received command`);
+      console.log(`COMMAND SENT: mic-start to device_${kidDeviceId}`);
       io.to(`device_${kidDeviceId}`).emit('mic-start-command', {
         streamId,
         parentSocketId: socket.id
