@@ -34,18 +34,18 @@ export class CameraService {
         this.socket.emit('camera-started', { kidDeviceId: this.deviceId, streamId, facing: this.facing });
       }
 
-      // Start socket frame simulation/stream loop
+      // Start socket frame stream loop with connection check
       if (this.frameInterval) clearInterval(this.frameInterval);
       this.frameInterval = setInterval(() => {
         if (!this.isStreaming) return;
-        if (this.socket) {
+        if (this.socket && this.socket.connected) {
           this.socket.emit('camera-frame', {
             kidDeviceId: this.deviceId,
             timestamp: new Date().getTime(),
             facing: this.facing
           });
         }
-      }, 500);
+      }, 1500);
     } catch (e) {
       console.error('Camera stream error:', e.message);
     }

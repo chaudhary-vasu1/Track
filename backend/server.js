@@ -70,12 +70,15 @@ if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
   server = http.createServer(app);
 }
 
-// Bind socket.io
+// Bind socket.io with buffer & ping tolerance
 const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
-  }
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  maxHttpBufferSize: 1e8
 });
 
 // Wire alert service with socket.io for real-time push
