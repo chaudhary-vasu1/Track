@@ -87,7 +87,7 @@ registerSocketHandlers(io);
 // Connect to MongoDB & Start Listening
 const PORT = config.server.port;
 connectDB().then(() => {
-  server.listen(PORT, () => {
-    console.log(`Server listening on ${isHttps ? 'https' : 'http'}://localhost:${PORT}`);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server listening on ${isHttps ? 'https' : 'http'}://0.0.0.0:${PORT} (Accessible via http://192.168.1.24:${PORT})`);
   });
 });

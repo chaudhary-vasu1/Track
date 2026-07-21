@@ -18,6 +18,7 @@
     },
     "android": {
       "package": "com.cropcure",
+      "usesCleartextTraffic": true,
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",
