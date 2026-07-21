@@ -129,16 +129,51 @@ export default function App() {
               Monitoring kid device: <strong>{selectedKid ? selectedKid.name : 'None Selected'}</strong>
             </p>
           </div>
-          <span style={{ 
-            background: 'rgba(0, 255, 135, 0.15)', 
-            color: '#00ff87', 
-            padding: '6px 12px', 
-            borderRadius: '20px', 
-            fontSize: '12px', 
-            fontWeight: 'bold' 
-          }}>
-            ● SECURE PIPELINE ESTABLISHED
-          </span>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Parent Linking ID Display */}
+            <div style={{
+              background: 'rgba(0, 242, 254, 0.08)',
+              border: '1px solid rgba(0, 242, 254, 0.2)',
+              borderRadius: '10px',
+              padding: '6px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '12px'
+            }}>
+              <span style={{ color: '#a39bb8' }}>Parent ID:</span>
+              <code style={{ color: '#00f2fe', fontWeight: 'bold' }}>{user.parentId || '669a8b123456789'}</code>
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(user.parentId || '669a8b123456789');
+                  alert('Parent ID copied to clipboard! Enter this ID in the Android app.');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#00f2fe',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  marginLeft: '4px'
+                }}
+              >
+                📋 Copy
+              </button>
+            </div>
+
+            <span style={{ 
+              background: 'rgba(0, 255, 135, 0.15)', 
+              color: '#00ff87', 
+              padding: '6px 12px', 
+              borderRadius: '20px', 
+              fontSize: '12px', 
+              fontWeight: 'bold' 
+            }}>
+              ● SECURE PIPELINE ESTABLISHED
+            </span>
+          </div>
         </header>
 
         {selectedKid && (
