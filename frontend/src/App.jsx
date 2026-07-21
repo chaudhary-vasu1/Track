@@ -8,7 +8,8 @@ import AppUsageBreakdown from './components/AppUsageBreakdown';
 import SurveillanceHistory from './components/SurveillanceHistory';
 import AppVisibilityControl from './components/AppVisibilityControl';
 import AlertsPanel from './components/AlertsPanel';
-import { initiateSocketConnection, disconnectSocket } from './services/socket';
+import api from './services/api';
+import { initiateSocketConnection, disconnectSocket, getSocket } from './services/socket';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -20,31 +21,46 @@ export default function App() {
     const parentId = localStorage.getItem('parent_id');
     const token = localStorage.getItem('parent_token');
     if (parentId && token) {
-      // Mock validation success or hook to active state
-      const mockUser = {
-        parentId,
-        kids: [
-          { id: 'kid_1', name: "John's Android", deviceId: 'device_123' },
-          { id: 'kid_2', name: "Sophia's iPhone", deviceId: 'device_456' }
-        ]
-      };
-      setUser(mockUser);
-      setSelectedKid(mockUser.kids[0]);
+      setUser({ parentId, kids: [] });
       initiateSocketConnection(parentId);
+      fetchDevices(parentId);
     }
     return () => disconnectSocket();
   }, []);
 
+  const fetchDevices = async (overrideParentId) => {
+    try {
+      const res = await api.get('/device/list');
+      const realKids = res.data.kids || [];
+      
+      const pId = overrideParentId || localStorage.getItem('parent_id');
+
+      if (realKids.length > 0) {
+        setUser(prev => ({ parentId: pId, kids: realKids }));
+        setSelectedKid(prev => {
+          if (prev && realKids.some(k => k.deviceId === prev.deviceId)) {
+            return prev;
+          }
+          return realKids[0];
+        });
+      } else {
+        const defaultKids = [
+          { id: 'kid_1', name: "John's Android", deviceId: 'device_123' },
+          { id: 'kid_2', name: "Sophia's iPhone", deviceId: 'device_456' }
+        ];
+        setUser(prev => ({ parentId: pId, kids: defaultKids }));
+        setSelectedKid(defaultKids[0]);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch real devices:', err.message);
+    }
+  };
+
   const handleLoginSuccess = (data) => {
-    // Populate default kids if backend response lacks them
-    const kids = data.kids && data.kids.length > 0 ? data.kids : [
-      { id: 'kid_1', name: "John's Android", deviceId: 'device_123' },
-      { id: 'kid_2', name: "Sophia's iPhone", deviceId: 'device_456' }
-    ];
-    const fullUser = { ...data, kids };
-    setUser(fullUser);
-    setSelectedKid(kids[0]);
-    initiateSocketConnection(data.parentId || localStorage.getItem('parent_id'));
+    const parentId = data.parentId || localStorage.getItem('parent_id');
+    setUser({ parentId, kids: data.kids || [] });
+    initiateSocketConnection(parentId);
+    fetchDevices(parentId);
   };
 
   const handleLogout = () => {
@@ -71,7 +87,16 @@ export default function App() {
           <h1>CropCure</h1>
           
           <div style={{ marginTop: '20px' }}>
-            <span style={{ fontSize: '11px', color: '#a39bb8', textTransform: 'uppercase' }}>Select Target Device</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', color: '#a39bb8', textTransform: 'uppercase' }}>Select Target Device</span>
+              <button 
+                onClick={() => fetchDevices()} 
+                title="Refresh registered devices"
+                style={{ background: 'none', border: 'none', color: '#00f2fe', cursor: 'pointer', fontSize: '12px' }}
+              >
+                🔄
+              </button>
+            </div>
             <select 
               className="device-select" 
               style={{ width: '100%', marginTop: '6px' }}
@@ -82,7 +107,7 @@ export default function App() {
               }}
             >
               {user.kids.map(k => (
-                <option key={k.id} value={k.deviceId}>{k.name}</option>
+                <option key={k.id} value={k.deviceId}>{k.name} ({k.deviceId})</option>
               ))}
             </select>
           </div>

@@ -118,4 +118,23 @@ router.get('/app/status', authMiddleware, async (req, res) => {
   }
 });
 
+// Get list of all registered kids for parent
+router.get('/list', authMiddleware, async (req, res) => {
+  try {
+    const kids = await Kid.find({ parentId: req.parentId });
+    res.json({
+      kids: kids.map(k => ({
+        id: k._id,
+        name: k.name,
+        deviceId: k.deviceId,
+        model: k.device ? k.device.model : 'Android Device',
+        os: k.device ? k.device.os : 'Android',
+        createdAt: k.createdAt
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
