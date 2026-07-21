@@ -34,6 +34,12 @@ export default function App() {
     loadSavedConfig();
   }, []);
 
+  const generateUniqueDeviceId = () => {
+    const timestamp = Date.now().toString(36);
+    const randomPart = Math.random().toString(36).substring(2, 10);
+    return `device_${timestamp}-${randomPart}`;
+  };
+
   const loadSavedConfig = async () => {
     try {
       const savedServerUrl = await AsyncStorage.getItem('@cropcure_server_url');
@@ -42,9 +48,9 @@ export default function App() {
       const savedDeviceName = await AsyncStorage.getItem('@cropcure_device_name');
       const savedRegistered = await AsyncStorage.getItem('@cropcure_registered');
 
-      // Ensure persistent device ID is generated and saved if missing
-      if (!savedDeviceId) {
-        savedDeviceId = 'device_123';
+      // Ensure persistent unique UUID device ID is generated and saved if missing or generic
+      if (!savedDeviceId || savedDeviceId === 'device_123') {
+        savedDeviceId = generateUniqueDeviceId();
         await AsyncStorage.setItem('@cropcure_device_id', savedDeviceId);
       }
 
@@ -141,12 +147,11 @@ export default function App() {
   const connectSocketAndServices = async (activeServer, targetDeviceId, targetParentId, targetDeviceName) => {
     try {
       console.log("Connecting device socket with ID:", targetDeviceId);
-      console.log('[Android Socket] Connecting to backend:', activeServer);
 
-      // Establish Socket connection sending BOTH deviceId and parentId in auth & query
+      // Establish Socket connection sending ONLY deviceId (never parentId)
       const socket = io(activeServer, {
-        auth: { deviceId: targetDeviceId, parentId: targetParentId },
-        query: { deviceId: targetDeviceId, parentId: targetParentId },
+        auth: { deviceId: targetDeviceId },
+        query: { deviceId: targetDeviceId },
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
@@ -157,16 +162,13 @@ export default function App() {
 
       socket.on('connect', () => {
         console.log("DEVICE ONLINE");
-        console.log("Device socket connected:", socket.id);
-        console.log('[Android Socket] Device ID being sent:', targetDeviceId);
-        console.log('[Android Socket] Parent ID being sent:', targetParentId);
+        console.log("Socket ID:", socket.id);
+        console.log("Device ID:", targetDeviceId);
 
         // Emit matching register-device event for backend listener
-        socket.emit('register-device', { deviceId: targetDeviceId, parentId: targetParentId }, (res) => {
+        socket.emit('register-device', { deviceId: targetDeviceId }, (res) => {
           if (res && res.status === 'ok') {
             console.log('[Android Socket] Device registration success confirmed by backend');
-          } else {
-            console.log('[Android Socket] Device registration emitted');
           }
         });
 
@@ -178,7 +180,7 @@ export default function App() {
       });
 
       socket.on('connect_error', (error) => {
-        console.log("Socket connection error:", error.message);
+        console.log("Device socket error:", error.message);
       });
 
       // Initialize background services
