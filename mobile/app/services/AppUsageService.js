@@ -27,6 +27,18 @@ export class AppUsageService {
             this.lastForegroundApp = currentApp;
             this.sendAppLog(currentApp, 'app_open');
           }
+
+          // Fetch full 24h usage stats breakdown
+          if (NativeModules.UsageStatsModule.getAppUsageStats) {
+            const fullUsage = await NativeModules.UsageStatsModule.getAppUsageStats();
+            if (fullUsage && Array.isArray(fullUsage) && fullUsage.length > 0) {
+              for (const appItem of fullUsage) {
+                if (appItem.appName && appItem.minutes > 0) {
+                  this.sendAppLog(appItem.appName, 'app_usage', appItem.minutes);
+                }
+              }
+            }
+          }
         }
       } catch (err) {
         console.warn('UsageStatsModule check failed:', err.message);

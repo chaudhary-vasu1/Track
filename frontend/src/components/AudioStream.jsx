@@ -45,6 +45,21 @@ export default function AudioStream({ kidDeviceId }) {
     socket.on('rtc-offer', handleRtcOffer);
     socket.on('ice-candidate', handleIceCandidate);
 
+    socket.on('mic-started', (data) => {
+      if (data.kidDeviceId === kidDeviceId) {
+        setStatusText('LIVE');
+      }
+    });
+
+    socket.on('mic-data', (data) => {
+      if (data.kidDeviceId === kidDeviceId) {
+        setStatusText('LIVE');
+        if (data.volumeLevel) {
+          setVolumeLevel(data.volumeLevel);
+        }
+      }
+    });
+
     socket.on('mic-stopped', () => {
       stopMicLocal();
     });
@@ -52,6 +67,8 @@ export default function AudioStream({ kidDeviceId }) {
     return () => {
       socket.off('rtc-offer', handleRtcOffer);
       socket.off('ice-candidate', handleIceCandidate);
+      socket.off('mic-started');
+      socket.off('mic-data');
       socket.off('mic-stopped');
       stopMicLocal();
     };

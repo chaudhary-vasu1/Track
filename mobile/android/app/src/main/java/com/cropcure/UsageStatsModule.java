@@ -74,6 +74,42 @@ public class UsageStatsModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void getAppUsageStats(Promise promise) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                Context context = getReactApplicationContext();
+                UsageStatsManager usm = (UsageStatsManager) context.getSystemService(Context.USAGE_STATS_SERVICE);
+                long endTime = System.currentTimeMillis();
+                long startTime = endTime - (1000 * 60 * 60 * 24); // Past 24 hours
+
+                List<UsageStats> stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime);
+                WritableArray array = Arguments.createArray();
+
+                if (stats != null) {
+                    for (UsageStats usageStats : stats) {
+                        long totalTimeInForeground = usageStats.getTotalTimeInForeground();
+                        if (totalTimeInForeground > 1000 * 60) { // Apps used > 1 minute
+                            WritableMap map = Arguments.createMap();
+                            String packageName = usageStats.getPackageName();
+                            String appName = getAppNameFromPackage(packageName);
+                            int minutes = (int) (totalTimeInForeground / (1000 * 60));
+                            map.putString("packageName", packageName);
+                            map.putString("appName", appName);
+                            map.putInt("minutes", minutes);
+                            array.pushMap(map);
+                        }
+                    }
+                }
+                promise.resolve(array);
+            } else {
+                promise.resolve(Arguments.createArray());
+            }
+        } catch (Exception e) {
+            promise.reject("USAGE_STATS_ERROR", e.getMessage());
+        }
+    }
+
+    @ReactMethod
     public void getForegroundApp(Promise promise) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {

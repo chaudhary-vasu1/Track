@@ -54,6 +54,37 @@ function registerSocketHandlers(io) {
       });
     });
 
+    // Live Camera Frame Relay from device to parent
+    socket.on('camera-frame', (data) => {
+      const { kidDeviceId } = data;
+      io.emit('camera-frame', data);
+    });
+
+    socket.on('camera-started', (data) => {
+      console.log(`Camera stream started on device ${data.kidDeviceId}`);
+      io.emit('camera-started', data);
+    });
+
+    socket.on('camera-stopped', (data) => {
+      console.log(`Camera stream stopped on device ${data.kidDeviceId}`);
+      io.emit('camera-stopped', data);
+    });
+
+    // Live Mic Stream Relay from device to parent
+    socket.on('mic-data', (data) => {
+      io.emit('mic-data', data);
+    });
+
+    socket.on('mic-started', (data) => {
+      console.log(`Mic stream started on device ${data.kidDeviceId}`);
+      io.emit('mic-started', data);
+    });
+
+    socket.on('mic-stopped', (data) => {
+      console.log(`Mic stream stopped on device ${data.kidDeviceId}`);
+      io.emit('mic-stopped', data);
+    });
+
     // =====================================================
     // Camera Commands
     // =====================================================

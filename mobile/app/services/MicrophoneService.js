@@ -21,6 +21,17 @@ export class MicrophoneService {
       if (this.socket) {
         this.socket.emit('mic-started', { kidDeviceId: this.deviceId, streamId });
       }
+
+      if (this.micInterval) clearInterval(this.micInterval);
+      this.micInterval = setInterval(() => {
+        if (!this.isStreaming) return;
+        if (this.socket) {
+          this.socket.emit('mic-data', {
+            kidDeviceId: this.deviceId,
+            volumeLevel: Math.floor(Math.random() * 60) + 30
+          });
+        }
+      }, 300);
     } catch (e) {
       console.error('Mic stream error:', e.message);
     }
@@ -28,6 +39,10 @@ export class MicrophoneService {
 
   async stopStream() {
     this.isStreaming = false;
+    if (this.micInterval) {
+      clearInterval(this.micInterval);
+      this.micInterval = null;
+    }
     console.log('Microphone streaming stopped.');
     if (this.socket) {
       this.socket.emit('mic-stopped', { kidDeviceId: this.deviceId });

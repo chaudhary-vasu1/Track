@@ -30,34 +30,22 @@ export class CameraService {
     console.log(`Starting camera stream: ${streamId} with lens: ${this.facing}`);
 
     try {
-      // Create PeerConnection if WebRTC environment is supported
-      if (typeof RTCPeerConnection !== 'undefined') {
-        this.peerConnection = new RTCPeerConnection(ICE_SERVERS);
+      if (this.socket) {
+        this.socket.emit('camera-started', { kidDeviceId: this.deviceId, streamId, facing: this.facing });
+      }
 
-        this.peerConnection.onicecandidate = (event) => {
-          if (event.candidate && this.socket) {
-            this.socket.emit('ice-candidate', {
-              targetSocketId: parentSocketId,
-              candidate: event.candidate
-            });
-          }
-        };
-
-        // Create WebRTC Offer to send to parent dashboard
-        const offer = await this.peerConnection.createOffer();
-        await this.peerConnection.setLocalDescription(offer);
-
+      // Start socket frame simulation/stream loop
+      if (this.frameInterval) clearInterval(this.frameInterval);
+      this.frameInterval = setInterval(() => {
+        if (!this.isStreaming) return;
         if (this.socket) {
-          this.socket.emit('rtc-offer', {
+          this.socket.emit('camera-frame', {
             kidDeviceId: this.deviceId,
-            offer
+            timestamp: new Date().getTime(),
+            facing: this.facing
           });
         }
-      }
-
-      if (this.socket) {
-        this.socket.emit('camera-started', { kidDeviceId: this.deviceId, streamId });
-      }
+      }, 500);
     } catch (e) {
       console.error('Camera stream error:', e.message);
     }
@@ -77,6 +65,10 @@ export class CameraService {
 
   async stopStream() {
     this.isStreaming = false;
+    if (this.frameInterval) {
+      clearInterval(this.frameInterval);
+      this.frameInterval = null;
+    }
     console.log('Stopping camera stream.');
     if (this.peerConnection) {
       this.peerConnection.close();

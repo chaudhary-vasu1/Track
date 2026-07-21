@@ -7,30 +7,33 @@ export default function AppUsageBreakdown({ kidDeviceId }) {
 
   useEffect(() => {
     fetchActivities();
+
+    const socket = getSocket();
+    if (socket) {
+      const handleTelemetry = (data) => {
+        if (data.kidDeviceId === kidDeviceId && (data.type === 'app_open' || data.type === 'app_usage' || data.type === 'website_blocked')) {
+          setActivities(prev => [data, ...prev]);
+        }
+      };
+
+      socket.on('telemetry-update', handleTelemetry);
+      return () => {
+        socket.off('telemetry-update', handleTelemetry);
+      };
+    }
   }, [kidDeviceId]);
 
   const fetchActivities = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/monitoring/activity', { params: { kidDeviceId, limit: 15 } });
-      setActivities(res.data.activities);
+      const res = await api.get('/monitoring/activity', { params: { kidDeviceId, limit: 25 } });
+      setActivities(res.data.activities || []);
     } catch (e) {
       console.error(e.message);
     } finally {
       setLoading(false);
     }
   };
-
-  // Mock list for fallback demonstration
-  const mockActivities = [
-    { type: 'app_open', appName: 'Instagram', timestamp: new Date(Date.now() - 500000) },
-    { type: 'website_blocked', website: 'blocked-gaming-site.com', timestamp: new Date(Date.now() - 900000) },
-    { type: 'app_open', appName: 'TikTok', timestamp: new Date(Date.now() - 1200000) },
-    { type: 'app_open', appName: 'YouTube', timestamp: new Date(Date.now() - 2000000) },
-    { type: 'website_blocked', website: 'adult-forum.org', timestamp: new Date(Date.now() - 3600000) },
-  ];
-
-  const dataList = activities.length > 0 ? activities : mockActivities;
 
   return (
     <div className="glass-card">
@@ -43,10 +46,11 @@ export default function AppUsageBreakdown({ kidDeviceId }) {
 
       {loading ? (
         <div style={{ padding: '20px', textAlign: 'center' }}>Loading activities...</div>
-      ) : (
+      ) : activities.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
-          {dataList.map((act, index) => {
+          {activities.map((act, index) => {
             const isBlock = act.type === 'website_blocked';
+            const isUsage = act.type === 'app_usage';
             return (
               <div 
                 key={index} 
@@ -66,11 +70,11 @@ export default function AppUsageBreakdown({ kidDeviceId }) {
                     padding: '2px 6px', 
                     borderRadius: '4px', 
                     fontWeight: 'bold',
-                    background: isBlock ? 'rgba(255, 56, 56, 0.15)' : 'rgba(0, 242, 254, 0.15)',
-                    color: isBlock ? '#ff3838' : '#00f2fe',
+                    background: isBlock ? 'rgba(255, 56, 56, 0.15)' : isUsage ? 'rgba(155, 81, 224, 0.15)' : 'rgba(0, 242, 254, 0.15)',
+                    color: isBlock ? '#ff3838' : isUsage ? '#9b51e0' : '#00f2fe',
                     marginRight: '10px'
                   }}>
-                    {isBlock ? 'BLOCKED' : 'OPENED'}
+                    {isBlock ? 'BLOCKED' : isUsage ? `${act.screenTimeMinutes || 0}m USED` : 'OPENED'}
                   </span>
                   <span style={{ fontSize: '14px', fontWeight: '600' }}>
                     {isBlock ? act.website : act.appName}
@@ -82,6 +86,10 @@ export default function AppUsageBreakdown({ kidDeviceId }) {
               </div>
             );
           })}
+        </div>
+      ) : (
+        <div style={{ height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a39bb8' }}>
+          No app usage activity logged yet for this device.
         </div>
       )}
     </div>

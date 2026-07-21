@@ -48,6 +48,12 @@ export default function CameraFeed({ kidDeviceId }) {
       setStatusText('LIVE');
     });
 
+    socket.on('camera-frame', (data) => {
+      if (data.kidDeviceId === kidDeviceId) {
+        setStatusText('LIVE');
+      }
+    });
+
     socket.on('camera-stopped', () => {
       setStatusText('Offline');
       setStreaming(false);
@@ -60,6 +66,7 @@ export default function CameraFeed({ kidDeviceId }) {
       socket.off('rtc-offer', handleRtcOffer);
       socket.off('ice-candidate', handleIceCandidate);
       socket.off('camera-started');
+      socket.off('camera-frame');
       socket.off('camera-stopped');
       if (rtcManagerRef.current) {
         rtcManagerRef.current.close();
