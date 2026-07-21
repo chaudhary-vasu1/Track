@@ -12,7 +12,20 @@ export const initiateSocketConnection = (parentId, deviceId) => {
     transports: ['websocket', 'polling']
   });
 
-  console.log('Connecting to WebSocket server...');
+  console.log('Connecting to WebSocket server at:', socketUrl);
+
+  socket.on('connect', () => {
+    console.log('[Frontend Socket] Connected successfully. Socket ID:', socket.id);
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.warn('[Frontend Socket] Disconnected. Reason:', reason);
+  });
+
+  socket.on('connect_error', (err) => {
+    console.error('[Frontend Socket] Connection Error:', err.message);
+  });
+
   return socket;
 };
 

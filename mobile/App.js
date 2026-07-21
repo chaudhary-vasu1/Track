@@ -151,6 +151,7 @@ export default function App() {
       setSocketInstance(socket);
 
       socket.on('connect', () => {
+        console.log("DEVICE ONLINE");
         console.log('[Android Socket] Socket connected: ID =', socket.id);
         console.log('[Android Socket] Device ID being sent:', targetDeviceId);
         console.log('[Android Socket] Parent ID being sent:', targetParentId);
@@ -165,6 +166,10 @@ export default function App() {
         });
 
         setStatusMsg(`✓ Connected as device "${targetDeviceId}". Stealth background monitoring active.`);
+      });
+
+      socket.on('disconnect', (reason) => {
+        console.log("DEVICE OFFLINE: reason=" + reason);
       });
 
       socket.io.on('reconnect', (attempt) => {

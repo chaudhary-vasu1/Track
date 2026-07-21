@@ -74,7 +74,8 @@ if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
 const io = new Server(server, {
   cors: {
     origin: '*',
-    methods: ['GET', 'POST']
+    methods: ['GET', 'POST'],
+    credentials: false
   },
   transports: ['websocket', 'polling'],
   pingTimeout: 60000,

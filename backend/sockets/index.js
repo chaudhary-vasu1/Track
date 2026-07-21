@@ -288,16 +288,16 @@ function registerSocketHandlers(io) {
           deviceSocketMap.delete(deviceId);
         }
 
-        // Set a 5-second grace period before generating offline alert
+        // Set a 30-second grace period before generating offline alert
         if (offlineGraceTimers.has(deviceId)) {
           clearTimeout(offlineGraceTimers.get(deviceId));
         }
 
         const timer = setTimeout(async () => {
-          // If device hasn't reconnected after 5 seconds, trigger alert
+          // If device hasn't reconnected after 30 seconds, trigger alert
           if (!deviceSocketMap.has(deviceId)) {
             try {
-              console.log(`Device ${deviceId} confirmed offline after 5s grace period.`);
+              console.log(`Device ${deviceId} confirmed offline after 30s grace period.`);
               await generateAlertByDevice(deviceId, 'device_offline', {
                 lastSeen: new Date().toISOString()
               });
@@ -306,7 +306,7 @@ function registerSocketHandlers(io) {
             }
           }
           offlineGraceTimers.delete(deviceId);
-        }, 5000);
+        }, 30000);
 
         offlineGraceTimers.set(deviceId, timer);
       }
