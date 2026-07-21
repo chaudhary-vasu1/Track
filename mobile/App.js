@@ -38,9 +38,15 @@ export default function App() {
     try {
       const savedServerUrl = await AsyncStorage.getItem('@cropcure_server_url');
       const savedParentId = await AsyncStorage.getItem('@cropcure_parent_id');
-      const savedDeviceId = await AsyncStorage.getItem('@cropcure_device_id');
+      let savedDeviceId = await AsyncStorage.getItem('@cropcure_device_id');
       const savedDeviceName = await AsyncStorage.getItem('@cropcure_device_name');
       const savedRegistered = await AsyncStorage.getItem('@cropcure_registered');
+
+      // Ensure persistent device ID is generated and saved if missing
+      if (!savedDeviceId) {
+        savedDeviceId = 'device_123';
+        await AsyncStorage.setItem('@cropcure_device_id', savedDeviceId);
+      }
 
       if (savedServerUrl) setServerUrl(savedServerUrl);
       if (savedParentId) setParentId(savedParentId);
@@ -49,8 +55,8 @@ export default function App() {
 
       if (savedRegistered === 'true' && savedServerUrl && savedDeviceId && savedParentId) {
         console.log('[Android Socket] Saved credentials loaded from AsyncStorage.');
-        console.log('[Android Socket] Auto-connecting device:', savedDeviceId, 'Parent:', savedParentId);
-        connectSocketAndServices(savedServerUrl, savedDeviceId, savedParentId, savedDeviceName);
+        console.log("Connecting device socket with ID:", savedDeviceId);
+        connectSocketAndServices(savedServerUrl, savedDeviceId, savedParentId, savedDeviceName || "John's Android");
       }
     } catch (e) {
       console.warn('[Android Socket] Failed to load saved config from AsyncStorage:', e.message);
@@ -134,9 +140,8 @@ export default function App() {
 
   const connectSocketAndServices = async (activeServer, targetDeviceId, targetParentId, targetDeviceName) => {
     try {
+      console.log("Connecting device socket with ID:", targetDeviceId);
       console.log('[Android Socket] Connecting to backend:', activeServer);
-      console.log('[Android Socket] Device ID being sent:', targetDeviceId);
-      console.log('[Android Socket] Parent ID being sent:', targetParentId);
 
       // Establish Socket connection sending BOTH deviceId and parentId in auth & query
       const socket = io(activeServer, {
@@ -152,7 +157,7 @@ export default function App() {
 
       socket.on('connect', () => {
         console.log("DEVICE ONLINE");
-        console.log('[Android Socket] Socket connected: ID =', socket.id);
+        console.log("Device socket connected:", socket.id);
         console.log('[Android Socket] Device ID being sent:', targetDeviceId);
         console.log('[Android Socket] Parent ID being sent:', targetParentId);
 
@@ -172,15 +177,8 @@ export default function App() {
         console.log("DEVICE OFFLINE: reason=" + reason);
       });
 
-      socket.io.on('reconnect', (attempt) => {
-        console.log(`[Android Socket] Reconnected after ${attempt} attempt(s). Re-registering device: ${targetDeviceId}`);
-        console.log('[Android Socket] Device ID being sent:', targetDeviceId);
-        console.log('[Android Socket] Parent ID being sent:', targetParentId);
-        socket.emit('register-device', { deviceId: targetDeviceId, parentId: targetParentId });
-      });
-
-      socket.on('connect_error', (err) => {
-        console.warn('[Android Socket] Socket connection error:', err.message);
+      socket.on('connect_error', (error) => {
+        console.log("Socket connection error:", error.message);
       });
 
       // Initialize background services
