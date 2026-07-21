@@ -93,4 +93,18 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Clear all alerts for parent
+router.delete('/clear-all/all', authMiddleware, async (req, res) => {
+  try {
+    const { kidDeviceId } = req.query;
+    const query = { parentId: req.parentId };
+    if (kidDeviceId) query.kidDeviceId = kidDeviceId;
+
+    const result = await Alert.deleteMany(query);
+    res.json({ success: true, deletedCount: result.deletedCount });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

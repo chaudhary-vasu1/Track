@@ -69,6 +69,16 @@ export default function AlertsPanel({ kidDeviceId }) {
     }
   };
 
+  const clearAllAlerts = async () => {
+    try {
+      await api.delete('/alerts/clear-all/all', { params: { kidDeviceId } });
+      setAlerts([]);
+      setUnreadCount(0);
+    } catch (e) {
+      console.error(e.message);
+    }
+  };
+
   // Fallback mock alerts if server has no alerts yet
   const fallbackAlerts = [
     {
@@ -111,15 +121,24 @@ export default function AlertsPanel({ kidDeviceId }) {
             )}
           </h3>
         </div>
-        {unreadCount > 0 && (
+        <div style={{ display: 'flex', gap: '6px' }}>
+          {unreadCount > 0 && (
+            <button 
+              onClick={markAllRead} 
+              className="btn-ctrl" 
+              style={{ padding: '4px 10px', fontSize: '11px' }}
+            >
+              ✓ Mark Read
+            </button>
+          )}
           <button 
-            onClick={markAllRead} 
+            onClick={clearAllAlerts} 
             className="btn-ctrl" 
-            style={{ padding: '4px 10px', fontSize: '11px' }}
+            style={{ padding: '4px 10px', fontSize: '11px', background: 'rgba(255, 56, 56, 0.1)', borderColor: '#ff3838' }}
           >
-            ✓ Mark All Read
+            🗑️ Clear All
           </button>
-        )}
+        </div>
       </div>
 
       {loading ? (
