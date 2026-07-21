@@ -12,16 +12,15 @@ function registerSocketHandlers(io) {
   const offlineGraceTimers = new Map();
 
   io.on('connection', (socket) => {
-    const deviceId = socket.handshake.auth.deviceId || socket.handshake.query.deviceId;
-    const parentId = socket.handshake.auth.parentId || socket.handshake.query.parentId;
+    let deviceId = socket.handshake.auth.deviceId || socket.handshake.query.deviceId;
+    let parentId = socket.handshake.auth.parentId || socket.handshake.query.parentId;
 
-    console.log(`Socket Connected: ID=${socket.id}, DeviceId=${deviceId}, ParentId=${parentId}`);
+    console.log(`Socket Connected:\nDeviceId=${deviceId || 'undefined'}\nParentId=${parentId || 'undefined'}`);
 
     if (deviceId) {
       // It is a kid device
       socket.join(`device_${deviceId}`);
       deviceSocketMap.set(deviceId, socket.id);
-      console.log(`Device registered: ${deviceId}`);
 
       // If device reconnects during grace period, cancel pending offline alert
       if (offlineGraceTimers.has(deviceId)) {
@@ -34,8 +33,35 @@ function registerSocketHandlers(io) {
     if (parentId) {
       // It is a parent client
       socket.join(`parent_${parentId}`);
-      console.log(`Parent client joined: parent_${parentId}`);
     }
+
+    // Explicit Device Registration Event Listener
+    socket.on('register-device', (data, callback) => {
+      const regDeviceId = data?.deviceId || deviceId;
+      const regParentId = data?.parentId || parentId;
+
+      if (regDeviceId) {
+        deviceId = regDeviceId;
+        socket.join(`device_${regDeviceId}`);
+        deviceSocketMap.set(regDeviceId, socket.id);
+
+        if (offlineGraceTimers.has(regDeviceId)) {
+          clearTimeout(offlineGraceTimers.get(regDeviceId));
+          offlineGraceTimers.delete(regDeviceId);
+        }
+      }
+
+      if (regParentId) {
+        parentId = regParentId;
+        socket.join(`parent_${regParentId}`);
+      }
+
+      console.log(`Device Registered via Event:\nDeviceId=${regDeviceId}\nParentId=${regParentId}`);
+
+      if (typeof callback === 'function') {
+        callback({ status: 'ok', deviceId: regDeviceId, parentId: regParentId });
+      }
+    });
 
     // =====================================================
     // WebRTC Signaling via simple-peer
@@ -101,7 +127,8 @@ function registerSocketHandlers(io) {
     // WebRTC: Parent requests camera stream
     socket.on('camera-start', (data) => {
       const { kidDeviceId, streamId } = data;
-      console.log(`Parent starting camera stream for ${kidDeviceId}, stream: ${streamId}`);
+      console.log('Parent sent CAMERA_START command');
+      console.log(`Device ${kidDeviceId} received command`);
       activeStreams.set(streamId, { parentSocketId: socket.id, kidDeviceId });
       io.to(`device_${kidDeviceId}`).emit('camera-start-command', {
         streamId,
@@ -180,7 +207,8 @@ function registerSocketHandlers(io) {
     // WebRTC: Parent initiates microphone stream
     socket.on('mic-start', (data) => {
       const { kidDeviceId, streamId } = data;
-      console.log(`Parent starting mic stream for ${kidDeviceId}, stream: ${streamId}`);
+      console.log('Parent sent MIC_START command');
+      console.log(`Device ${kidDeviceId} received command`);
       io.to(`device_${kidDeviceId}`).emit('mic-start-command', {
         streamId,
         parentSocketId: socket.id

