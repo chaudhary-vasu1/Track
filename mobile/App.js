@@ -95,7 +95,7 @@ export default function App() {
       });
 
       socket.on('connect', () => {
-        setStatusMsg('Secure Connection Established. Stealth background monitoring activated.');
+        setStatusMsg(`✓ Connected as device "${deviceId}". Stealth background monitoring active.`);
       });
 
       // Initialize background services
