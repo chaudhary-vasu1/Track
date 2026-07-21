@@ -237,23 +237,51 @@ function registerSocketHandlers(io) {
       }
     });
 
+    // Map for pending offline alert grace timers: deviceId -> timer
+    const offlineGraceTimers = new Map();
+
+    if (deviceId) {
+      // If device reconnects during grace period, cancel pending offline alert
+      if (offlineGraceTimers.has(deviceId)) {
+        clearTimeout(offlineGraceTimers.get(deviceId));
+        offlineGraceTimers.delete(deviceId);
+        console.log(`Device ${deviceId} reconnected within grace period. Cancelled offline alert.`);
+      }
+    }
+
     // =====================================================
     // Connection Lifecycle
     // =====================================================
 
-    socket.on('disconnect', async () => {
-      console.log(`Socket Disconnected: ${socket.id}`);
-      if (deviceId) {
-        deviceSocketMap.delete(deviceId);
-
-        // Generate device offline alert
-        try {
-          await generateAlertByDevice(deviceId, 'device_offline', {
-            lastSeen: new Date().toISOString()
-          });
-        } catch (e) {
-          console.error('Failed to generate offline alert:', e.message);
+    socket.on('disconnect', async (reason) => {
+      console.log(`Socket Disconnected: ${socket.id}, reason=${reason}`);
+      if (deviceId && reason !== 'transport upgrade') {
+        // Clear active socket mapping
+        if (deviceSocketMap.get(deviceId) === socket.id) {
+          deviceSocketMap.delete(deviceId);
         }
+
+        // Set a 5-second grace period before generating offline alert
+        if (offlineGraceTimers.has(deviceId)) {
+          clearTimeout(offlineGraceTimers.get(deviceId));
+        }
+
+        const timer = setTimeout(async () => {
+          // If device hasn't reconnected after 5 seconds, trigger alert
+          if (!deviceSocketMap.has(deviceId)) {
+            try {
+              console.log(`Device ${deviceId} confirmed offline after 5s grace period.`);
+              await generateAlertByDevice(deviceId, 'device_offline', {
+                lastSeen: new Date().toISOString()
+              });
+            } catch (e) {
+              console.error('Failed to generate offline alert:', e.message);
+            }
+          }
+          offlineGraceTimers.delete(deviceId);
+        }, 5000);
+
+        offlineGraceTimers.set(deviceId, timer);
       }
     });
   });
