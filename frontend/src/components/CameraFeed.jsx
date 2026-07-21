@@ -46,11 +46,13 @@ export default function CameraFeed({ kidDeviceId }) {
 
     socket.on('camera-started', () => {
       setStatusText('LIVE');
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
     });
 
     socket.on('camera-frame', (data) => {
       if (data.kidDeviceId === kidDeviceId) {
         setStatusText('LIVE');
+        if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
       }
     });
 

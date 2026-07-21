@@ -48,12 +48,14 @@ export default function AudioStream({ kidDeviceId }) {
     socket.on('mic-started', (data) => {
       if (data.kidDeviceId === kidDeviceId) {
         setStatusText('LIVE');
+        if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
       }
     });
 
     socket.on('mic-data', (data) => {
       if (data.kidDeviceId === kidDeviceId) {
         setStatusText('LIVE');
+        if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
         if (data.volumeLevel) {
           setVolumeLevel(data.volumeLevel);
         }
