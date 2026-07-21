@@ -124,6 +124,8 @@ export default function AudioStream({ kidDeviceId }) {
     }
   };
 
+  const startTimeoutRef = useRef(null);
+
   const startMic = async () => {
     try {
       setStatusText('Connecting...');
@@ -133,6 +135,11 @@ export default function AudioStream({ kidDeviceId }) {
         socket.emit('mic-start', { kidDeviceId, streamId });
       }
       setListening(true);
+
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
+      startTimeoutRef.current = setTimeout(() => {
+        setStatusText(prev => (prev === 'Connecting...' ? 'Device Offline / No Signal' : prev));
+      }, 5000);
     } catch (e) {
       console.error(e.message);
       setStatusText('Error');

@@ -74,6 +74,14 @@ export default function CameraFeed({ kidDeviceId }) {
     };
   }, [socket, kidDeviceId]);
 
+  const startTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
+    };
+  }, []);
+
   const startCamera = async () => {
     try {
       setStatusText('Connecting...');
@@ -86,6 +94,11 @@ export default function CameraFeed({ kidDeviceId }) {
       }
 
       setStreaming(true);
+
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
+      startTimeoutRef.current = setTimeout(() => {
+        setStatusText(prev => (prev === 'Connecting...' ? 'Device Offline / No Signal' : prev));
+      }, 5000);
     } catch (error) {
       console.error('Failed to start camera:', error.message);
       setStatusText('Connection Failed');

