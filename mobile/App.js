@@ -181,6 +181,14 @@ export default function App() {
         transports: ['websocket', 'polling']
       });
 
+      // Keep-alive watchdog to force reconnect if Socket.IO internal timers are throttled in background
+      setInterval(() => {
+        if (socket && socket.disconnected) {
+           console.log('[Android] Watchdog detected socket disconnected! Forcing reconnect...');
+           socket.connect();
+        }
+      }, 10000);
+
       setSocketInstance(socket);
 
       socket.on('connect', () => {

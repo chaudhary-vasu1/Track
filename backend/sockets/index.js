@@ -19,7 +19,7 @@ function registerSocketHandlers(io) {
 
     if (deviceId) {
       // It is a kid device
-      socket.join(`device_${deviceId}`);
+      socket.join(getDeviceRoom(deviceId));
       deviceSocketMap.set(deviceId, socket.id);
       console.log(`DEVICE CONNECTED: deviceId=${deviceId}, socketId=${socket.id}`);
 
@@ -33,7 +33,7 @@ function registerSocketHandlers(io) {
 
     if (parentId) {
       // It is a parent client
-      socket.join(`parent_${parentId}`);
+      socket.join(getParentRoom(parentId));
       console.log(`PARENT CONNECTED: parentId=${parentId}, socketId=${socket.id}`);
     }
 
@@ -44,7 +44,7 @@ function registerSocketHandlers(io) {
 
       if (regDeviceId) {
         deviceId = regDeviceId;
-        socket.join(`device_${regDeviceId}`);
+        socket.join(getDeviceRoom(regDeviceId));
         deviceSocketMap.set(regDeviceId, socket.id);
 
         if (offlineGraceTimers.has(regDeviceId)) {
@@ -55,7 +55,7 @@ function registerSocketHandlers(io) {
 
       if (regParentId) {
         parentId = regParentId;
-        socket.join(`parent_${regParentId}`);
+        socket.join(getParentRoom(regParentId));
       }
 
       console.log(`Device Registered via Event:\nDeviceId=${regDeviceId}\nParentId=${regParentId}`);
@@ -73,7 +73,7 @@ function registerSocketHandlers(io) {
     socket.on('webrtc-signal-to-device', (data) => {
       const { kidDeviceId, signal, streamType } = data;
       console.log(`WebRTC signal to device ${kidDeviceId} (${streamType || 'camera'})`);
-      io.to(`device_${kidDeviceId}`).emit('webrtc-signal-from-parent', {
+      io.to(getDeviceRoom(kidDeviceId)).emit('webrtc-signal-from-parent', {
         signal,
         streamType: streamType || 'camera',
         parentSocketId: socket.id
@@ -131,7 +131,7 @@ function registerSocketHandlers(io) {
       const { kidDeviceId, streamId } = data;
       console.log(`COMMAND SENT: camera-start to device_${kidDeviceId}`);
       activeStreams.set(streamId, { parentSocketId: socket.id, kidDeviceId });
-      io.to(`device_${kidDeviceId}`).emit('camera-start-command', {
+      io.to(getDeviceRoom(kidDeviceId)).emit('camera-start-command', {
         streamId,
         parentSocketId: socket.id
       });
@@ -141,14 +141,14 @@ function registerSocketHandlers(io) {
     socket.on('camera-switch', (data) => {
       const { kidDeviceId, facing } = data; // facing is 'front' or 'back'
       console.log(`Parent switching camera facing for ${kidDeviceId} to ${facing}`);
-      io.to(`device_${kidDeviceId}`).emit('camera-switch-command', { facing });
+      io.to(getDeviceRoom(kidDeviceId)).emit('camera-switch-command', { facing });
     });
 
     // WebRTC: Parent stops camera
     socket.on('camera-stop', async (data) => {
       const { kidDeviceId } = data;
       console.log(`Parent stopping camera for ${kidDeviceId}`);
-      io.to(`device_${kidDeviceId}`).emit('camera-stop-command');
+      io.to(getDeviceRoom(kidDeviceId)).emit('camera-stop-command');
 
       // Create Surveillance Audit Log
       try {
@@ -171,7 +171,7 @@ function registerSocketHandlers(io) {
     socket.on('rtc-offer', (data) => {
       const { kidDeviceId, offer } = data;
       console.log(`rtc-offer signaling for device ${kidDeviceId}`);
-      io.to(`device_${kidDeviceId}`).emit('rtc-offer', { offer, senderId: socket.id });
+      io.to(getDeviceRoom(kidDeviceId)).emit('rtc-offer', { offer, senderId: socket.id });
     });
 
     socket.on('rtc-answer', (data) => {
@@ -183,7 +183,7 @@ function registerSocketHandlers(io) {
     socket.on('ice-candidate', (data) => {
       const { kidDeviceId, candidate, targetSocketId } = data;
       if (kidDeviceId) {
-        io.to(`device_${kidDeviceId}`).emit('ice-candidate', { candidate, senderId: socket.id });
+        io.to(getDeviceRoom(kidDeviceId)).emit('ice-candidate', { candidate, senderId: socket.id });
       } else if (targetSocketId) {
         io.to(targetSocketId).emit('ice-candidate', { candidate });
       }
@@ -192,13 +192,13 @@ function registerSocketHandlers(io) {
     // Recording Controls: Parent starts video recording
     socket.on('camera-record-start', (data) => {
       const { kidDeviceId } = data;
-      io.to(`device_${kidDeviceId}`).emit('camera-record-start');
+      io.to(getDeviceRoom(kidDeviceId)).emit('camera-record-start');
     });
 
     // Recording Controls: Parent stops video recording
     socket.on('camera-record-stop', (data) => {
       const { kidDeviceId } = data;
-      io.to(`device_${kidDeviceId}`).emit('camera-record-stop');
+      io.to(getDeviceRoom(kidDeviceId)).emit('camera-record-stop');
     });
 
     // =====================================================
@@ -209,7 +209,7 @@ function registerSocketHandlers(io) {
     socket.on('mic-start', (data) => {
       const { kidDeviceId, streamId } = data;
       console.log(`COMMAND SENT: mic-start to device_${kidDeviceId}`);
-      io.to(`device_${kidDeviceId}`).emit('mic-start-command', {
+      io.to(getDeviceRoom(kidDeviceId)).emit('mic-start-command', {
         streamId,
         parentSocketId: socket.id
       });
@@ -219,17 +219,17 @@ function registerSocketHandlers(io) {
     socket.on('mic-stop', (data) => {
       const { kidDeviceId } = data;
       console.log(`Parent stopping mic for ${kidDeviceId}`);
-      io.to(`device_${kidDeviceId}`).emit('mic-stop-command');
+      io.to(getDeviceRoom(kidDeviceId)).emit('mic-stop-command');
     });
 
     socket.on('mic-record-start', (data) => {
       const { kidDeviceId } = data;
-      io.to(`device_${kidDeviceId}`).emit('mic-record-start');
+      io.to(getDeviceRoom(kidDeviceId)).emit('mic-record-start');
     });
 
     socket.on('mic-record-stop', (data) => {
       const { kidDeviceId } = data;
-      io.to(`device_${kidDeviceId}`).emit('mic-record-stop');
+      io.to(getDeviceRoom(kidDeviceId)).emit('mic-record-stop');
     });
 
     // =====================================================
@@ -240,13 +240,13 @@ function registerSocketHandlers(io) {
     socket.on('app-hide', (data) => {
       const { kidDeviceId } = data;
       console.log(`Parent command: Hide App for ${kidDeviceId}`);
-      io.to(`device_${kidDeviceId}`).emit('app-hide-command');
+      io.to(getDeviceRoom(kidDeviceId)).emit('app-hide-command');
     });
 
     socket.on('app-show', (data) => {
       const { kidDeviceId } = data;
       console.log(`Parent command: Show App for ${kidDeviceId}`);
-      io.to(`device_${kidDeviceId}`).emit('app-show-command');
+      io.to(getDeviceRoom(kidDeviceId)).emit('app-show-command');
     });
 
     // =====================================================
@@ -260,13 +260,13 @@ function registerSocketHandlers(io) {
       
       // Broadcast to parent dashboard listening room
       if (parentId) {
-        io.to(`parent_${parentId}`).emit('telemetry-update', data);
+        io.to(getParentRoom(parentId)).emit('telemetry-update', data);
       } else {
         // Find kid's parent ID and emit to them
         try {
           const kid = await Kid.findOne({ deviceId: kidDeviceId });
           if (kid) {
-            io.to(`parent_${kid.parentId}`).emit('telemetry-update', data);
+            io.to(getParentRoom(kid.parentId)).emit('telemetry-update', data);
           }
         } catch (e) {
           console.error(e.message);

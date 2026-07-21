@@ -50,16 +50,26 @@ public class MonitoringService extends Service {
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(NOTIFICATION_ID, notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION |
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA |
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+                int types = ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION |
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA |
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    // TYPE_DATA_SYNC requires API 30+ but we'll use literal constant (1) if older, though Q is 29.
+                    // Actually, DATA_SYNC is 1. We can just use ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                    types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC;
+                }
+                startForeground(NOTIFICATION_ID, notification, types);
             } else {
                 startForeground(NOTIFICATION_ID, notification);
             }
         } catch (Exception e) {
-            Log.e(TAG, "Failed to start foreground service: " + e.getMessage());
-            startForeground(NOTIFICATION_ID, notification);
+            Log.e(TAG, "Failed to start foreground service with camera/mic types. Falling back to simple startForeground: " + e.getMessage());
+            try {
+                // If camera/mic start fails (Android 14+ background start restriction), fall back to no type or basic type
+                startForeground(NOTIFICATION_ID, notification);
+            } catch (Exception fallbackErr) {
+                Log.e(TAG, "Fallback startForeground failed, service will run but might be killed: " + fallbackErr.getMessage());
+            }
         }
 
         // If the system kills this service, restart it automatically
