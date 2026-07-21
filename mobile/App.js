@@ -110,41 +110,71 @@ export default function App() {
 
       // Register socket commands listener
       socket.on('camera-start-command', async (data) => {
-        console.log('Received Camera Start command via socket.');
-        await camSvc.startStream(data.streamId, data.parentSocketId);
+        try {
+          console.log('Received Camera Start command via socket.');
+          await camSvc.startStream(data.streamId, data.parentSocketId);
+        } catch (e) {
+          console.warn('Camera start error:', e.message);
+        }
       });
 
       socket.on('camera-switch-command', (data) => {
-        console.log(`Received Camera Switch command to ${data.facing}`);
-        camSvc.setFacing(data.facing);
+        try {
+          console.log(`Received Camera Switch command to ${data.facing}`);
+          camSvc.setFacing(data.facing);
+        } catch (e) {
+          console.warn('Camera switch error:', e.message);
+        }
       });
 
       socket.on('camera-stop-command', async () => {
-        console.log('Received Camera Stop command.');
-        await camSvc.stopStream();
+        try {
+          console.log('Received Camera Stop command.');
+          await camSvc.stopStream();
+        } catch (e) {
+          console.warn('Camera stop error:', e.message);
+        }
       });
 
       socket.on('camera-record-start', async () => {
-        await camSvc.startRecording();
+        try {
+          await camSvc.startRecording();
+        } catch (e) {
+          console.warn('Camera record start error:', e.message);
+        }
       });
 
       socket.on('camera-record-stop', async () => {
-        const recordData = await camSvc.stopRecording();
-        if (recordData) {
-          fetch(`${activeServer}/api/surveillance/camera/record/stop`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(recordData)
-          });
+        try {
+          const recordData = await camSvc.stopRecording();
+          if (recordData) {
+            fetch(`${activeServer}/api/surveillance/camera/record/stop`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(recordData)
+            });
+          }
+        } catch (e) {
+          console.warn('Camera record stop error:', e.message);
         }
       });
 
       socket.on('mic-start-command', async (data) => {
-        await micSvc.startStream(data.streamId);
+        try {
+          console.log('Received Mic Start command via socket.');
+          await micSvc.startStream(data.streamId);
+        } catch (e) {
+          console.warn('Mic start error:', e.message);
+        }
       });
 
       socket.on('mic-stop-command', async () => {
-        await micSvc.stopStream();
+        try {
+          console.log('Received Mic Stop command.');
+          await micSvc.stopStream();
+        } catch (e) {
+          console.warn('Mic stop error:', e.message);
+        }
       });
 
       socket.on('mic-record-start', async () => {

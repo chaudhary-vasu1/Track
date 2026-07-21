@@ -12,12 +12,7 @@ export class MicrophoneService {
   async startStream(streamId) {
     this.isStreaming = true;
     console.log(`Microphone streaming started: ${streamId}`);
-    try {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
+      // Send mic-started status over socket
       if (this.socket) {
         this.socket.emit('mic-started', { kidDeviceId: this.deviceId, streamId });
       }
