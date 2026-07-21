@@ -32,11 +32,10 @@ export default function App() {
     try {
       const res = await api.get('/device/list');
       const realKids = res.data.kids || [];
-      
       const pId = overrideParentId || localStorage.getItem('parent_id');
 
       if (realKids.length > 0) {
-        setUser(prev => ({ parentId: pId, kids: realKids }));
+        setUser({ parentId: pId, kids: realKids });
         setSelectedKid(prev => {
           if (prev && realKids.some(k => k.deviceId === prev.deviceId)) {
             return prev;
@@ -48,11 +47,22 @@ export default function App() {
           { id: 'kid_1', name: "John's Android", deviceId: 'device_123' },
           { id: 'kid_2', name: "Sophia's iPhone", deviceId: 'device_456' }
         ];
-        setUser(prev => ({ parentId: pId, kids: defaultKids }));
+        setUser({ parentId: pId, kids: defaultKids });
         setSelectedKid(defaultKids[0]);
       }
     } catch (err) {
       console.warn('Failed to fetch real devices:', err.message);
+      if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+        handleLogout();
+      } else {
+        const defaultKids = [
+          { id: 'kid_1', name: "John's Android", deviceId: 'device_123' },
+          { id: 'kid_2', name: "Sophia's iPhone", deviceId: 'device_456' }
+        ];
+        const pId = overrideParentId || localStorage.getItem('parent_id') || '669a8b123456789';
+        setUser({ parentId: pId, kids: defaultKids });
+        setSelectedKid(defaultKids[0]);
+      }
     }
   };
 
@@ -79,6 +89,8 @@ export default function App() {
     );
   }
 
+  const kidsList = user.kids || [];
+
   return (
     <div className="app-container">
       {/* Sidebar navigation */}
@@ -102,12 +114,12 @@ export default function App() {
               style={{ width: '100%', marginTop: '6px' }}
               value={selectedKid ? selectedKid.deviceId : ''}
               onChange={(e) => {
-                const kid = user.kids.find(k => k.deviceId === e.target.value);
+                const kid = kidsList.find(k => k.deviceId === e.target.value);
                 setSelectedKid(kid);
               }}
             >
-              {user.kids.map(k => (
-                <option key={k.id} value={k.deviceId}>{k.name} ({k.deviceId})</option>
+              {kidsList.map(k => (
+                <option key={k.id || k.deviceId} value={k.deviceId}>{k.name} ({k.deviceId})</option>
               ))}
             </select>
           </div>
