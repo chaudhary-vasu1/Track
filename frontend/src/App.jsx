@@ -107,6 +107,24 @@ export default function App() {
     fetchDevices(parentId);
   };
 
+  const handleRemoveDevice = async () => {
+    if (!selectedKid) return;
+    
+    const confirmDelete = window.confirm(
+      `⚠️ WARNING: Are you sure you want to remove the device "${selectedKid.name}" (${selectedKid.deviceId}) from your dashboard?\n\nThis will unlink the device from your parent account.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      await api.delete(`/device/${selectedKid.deviceId}`);
+      alert(`Device "${selectedKid.name}" removed successfully.`);
+      await fetchDevices();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to remove device.');
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('parent_token');
     localStorage.removeItem('parent_id');
@@ -135,13 +153,24 @@ export default function App() {
           <div style={{ marginTop: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '11px', color: '#a39bb8', textTransform: 'uppercase' }}>Select Target Device</span>
-              <button 
-                onClick={() => fetchDevices()} 
-                title="Refresh registered devices"
-                style={{ background: 'none', border: 'none', color: '#00f2fe', cursor: 'pointer', fontSize: '12px' }}
-              >
-                🔄
-              </button>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button 
+                  onClick={() => fetchDevices()} 
+                  title="Refresh registered devices"
+                  style={{ background: 'none', border: 'none', color: '#00f2fe', cursor: 'pointer', fontSize: '12px' }}
+                >
+                  🔄
+                </button>
+                {selectedKid && (
+                  <button 
+                    onClick={handleRemoveDevice} 
+                    title="Remove selected device"
+                    style={{ background: 'none', border: 'none', color: '#ff3838', cursor: 'pointer', fontSize: '12px' }}
+                  >
+                    🗑️
+                  </button>
+                )}
+              </div>
             </div>
             <select 
               className="device-select" 

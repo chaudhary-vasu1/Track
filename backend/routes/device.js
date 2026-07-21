@@ -137,4 +137,35 @@ router.get('/list', authMiddleware, async (req, res) => {
   }
 });
 
+// Remove registered device from parent account
+router.delete('/:deviceId', authMiddleware, async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    
+    // Find kid
+    const kid = await Kid.findOne({ deviceId, parentId: req.parentId });
+    if (!kid) {
+      return res.status(404).json({ error: 'Device not found or not linked to this parent account' });
+    }
+
+    // Remove kid reference from parent's kids array
+    const Parent = require('../models/Parent');
+    await Parent.findByIdAndUpdate(req.parentId, {
+      $pull: { kids: kid._id }
+    });
+
+    // Delete Kid record
+    await Kid.deleteOne({ _id: kid._id });
+
+    // Cleanup visibility records
+    await AppVisibility.deleteMany({ deviceId });
+
+    res.json({
+      message: `Device "${kid.name}" (${deviceId}) removed successfully.`
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
