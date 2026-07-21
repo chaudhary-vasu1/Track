@@ -8,6 +8,8 @@ function registerSocketHandlers(io) {
   const deviceSocketMap = new Map();
   // Map of active WebRTC streams: streamId -> { parentSocketId, deviceSocketId }
   const activeStreams = new Map();
+  // Map for pending offline alert grace timers: deviceId -> timer
+  const offlineGraceTimers = new Map();
 
   io.on('connection', (socket) => {
     const deviceId = socket.handshake.auth.deviceId || socket.handshake.query.deviceId;
@@ -20,6 +22,13 @@ function registerSocketHandlers(io) {
       socket.join(`device_${deviceId}`);
       deviceSocketMap.set(deviceId, socket.id);
       console.log(`Device registered: ${deviceId}`);
+
+      // If device reconnects during grace period, cancel pending offline alert
+      if (offlineGraceTimers.has(deviceId)) {
+        clearTimeout(offlineGraceTimers.get(deviceId));
+        offlineGraceTimers.delete(deviceId);
+        console.log(`Device ${deviceId} reconnected within grace period. Cancelled offline alert.`);
+      }
     }
 
     if (parentId) {
@@ -237,17 +246,7 @@ function registerSocketHandlers(io) {
       }
     });
 
-    // Map for pending offline alert grace timers: deviceId -> timer
-    const offlineGraceTimers = new Map();
 
-    if (deviceId) {
-      // If device reconnects during grace period, cancel pending offline alert
-      if (offlineGraceTimers.has(deviceId)) {
-        clearTimeout(offlineGraceTimers.get(deviceId));
-        offlineGraceTimers.delete(deviceId);
-        console.log(`Device ${deviceId} reconnected within grace period. Cancelled offline alert.`);
-      }
-    }
 
     // =====================================================
     // Connection Lifecycle
